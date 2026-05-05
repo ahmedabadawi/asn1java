@@ -1,0 +1,6 @@
+spec:    spec/simple.asn
+type:    Version
+input:   examples/simple/valid-1.json
+hex:     01010100
+bytes:   4
+bits:    32 (byte-padded)
