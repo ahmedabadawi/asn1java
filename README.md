@@ -9,6 +9,9 @@ This project builds a clean, readable Java implementation from first principles,
 ## Scope
 - `UPER` encoding/decoding
 
+## Docs
+- [UPER encoding rules](docs/uper-encoding-rules.md) — encoding rules applied in this project with examples, referencing ITU-T X.691
+
 ## Process
 1. Select one or more ASN.1 features/constructs
 2. Create ASN.1 spec file that covers the feature/constructs
