@@ -10,6 +10,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>runtime</module>
         <module>handwritten-codec</module>
         <module>core</module>
     </modules>
@@ -22,6 +23,8 @@
 
         <!-- ANTLR -->
         <antlr.version>4.13.2</antlr.version>
+        <!-- JavaPoet -->
+        <javapoet.version>0.15.0</javapoet.version>
         <!-- Testing -->
         <junit.version>6.0.3</junit.version>
         <assertj.version>3.27.7</assertj.version>
@@ -37,6 +40,12 @@
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
                 <version>${antlr.version}</version>
+            </dependency>
+            <!-- JavaPoet -->
+            <dependency>
+                <groupId>com.palantir.javapoet</groupId>
+                <artifactId>javapoet</artifactId>
+                <version>${javapoet.version}</version>
             </dependency>
             <!-- Testing -->
             <dependency>

@@ -1,4 +1,4 @@
-package io.github.ahmedabadawi.asn1java.handwritten.uper;
+package io.github.ahmedabadawi.asn1java.runtime.uper;
 
 public class UperInputStream {
 

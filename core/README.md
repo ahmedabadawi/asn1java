@@ -112,12 +112,55 @@ src/main/java/.../core/
 │   ├── FieldNode.java
 │   ├── ConstraintNode.java
 │   └── Bound.java             # sealed interface (NumberBound, MaxBound)
+├── codegen/
+│   ├── Asn1CodeGenerator.java # public entry point — generate()
+│   ├── Asn1CodeWriter.java    # writes JavaFile list to disk
+│   ├── ModelGenerator.java    # generates Java records from AST
+│   └── CodecGenerator.java    # generates UPER codec classes from AST
 ├── exception/
 │   ├── Asn1SyntaxException.java
 │   └── Asn1SemanticException.java
 └── validation/
     └── Asn1SemanticValidator.java
 ```
+
+## Code generation
+
+`Asn1CodeGenerator` uses [JavaPoet](https://github.com/palantir/javapoet) to emit Java source files from a `ModuleNode`. It produces two files per type assignment — a model record and a codec class — targeting a caller-supplied base package.
+
+```java
+ModuleNode module = Asn1Spec.parse(source);
+List<JavaFile> files = new Asn1CodeGenerator("com.example.gen").generate(module);
+Asn1CodeWriter.writeTo(files, Path.of("src/main/java"));
+```
+
+The generated package is `basePackage + "." + moduleName.toLowerCase()`. For the `VersionInfo` module with base package `com.example.gen` the output lands in `com.example.gen.versioninfo`.
+
+### Generated model
+
+Each `SEQUENCE` type becomes a Java record with one `int` component per field:
+
+```java
+public record Version(int major, int minor) {}
+```
+
+A top-level `INTEGER` type becomes a single-field wrapper record:
+
+```java
+public record MyInt(int value) {}
+```
+
+### Generated codec
+
+Each type gets a corresponding `*Codec` class with `encode(Model) → byte[]` and `decode(byte[]) → Model` instance methods. The encoding strategy is chosen from the ASN.1 constraint at generation time and emitted as a literal in the output:
+
+| Constraint | X.691 rule | Generated call |
+|---|---|---|
+| `INTEGER (lb..MAX)` or no constraint | Semi-constrained (§12.2.6) | `UperCodecSupport.encodeSemiConstrainedInt(out, value)` |
+| `INTEGER (lb..ub)` | Constrained whole number (§12.2.3) | `out.writeBits(value - lb, <bitCount>)` |
+| `INTEGER (n..n)` | Zero-range | nothing written |
+
+`bitCount` is computed at generation time (`32 - Integer.numberOfLeadingZeros(ub - lb)`) and appears as an integer literal in the generated source. The generated codec depends on `asn1java-runtime` at runtime for `UperOutputStream`, `UperInputStream`, and `UperCodecSupport`.
 
 ## Semantic validation
 

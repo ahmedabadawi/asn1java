@@ -1,0 +1,46 @@
+package io.github.ahmedabadawi.asn1java.core.codegen;
+
+import com.palantir.javapoet.JavaFile;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.TypeName;
+import com.palantir.javapoet.TypeSpec;
+import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+
+import javax.lang.model.element.Modifier;
+
+final class ModelGenerator {
+
+    private ModelGenerator() {}
+
+    static JavaFile generate(String pkg, TypeAssignmentNode ta) {
+        TypeSpec record = switch (ta.type()) {
+            case SequenceTypeNode seq -> buildSequenceRecord(ta.name(), seq);
+            case IntegerTypeNode ignored -> buildIntegerWrapperRecord(ta.name());
+        };
+        return JavaFile.builder(pkg, record).build();
+    }
+
+    private static TypeSpec buildSequenceRecord(String name, SequenceTypeNode seq) {
+        MethodSpec.Builder ctor = MethodSpec.constructorBuilder();
+        for (FieldNode field : seq.fields()) {
+            ctor.addParameter(TypeName.INT, field.name());
+        }
+        return TypeSpec.recordBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .recordConstructor(ctor.build())
+                .build();
+    }
+
+    private static TypeSpec buildIntegerWrapperRecord(String name) {
+        MethodSpec ctor = MethodSpec.constructorBuilder()
+                .addParameter(TypeName.INT, "value")
+                .build();
+        return TypeSpec.recordBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .recordConstructor(ctor)
+                .build();
+    }
+}

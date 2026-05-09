@@ -1,7 +1,7 @@
 package io.github.ahmedabadawi.asn1java.handwritten.simple;
 
-import io.github.ahmedabadawi.asn1java.handwritten.uper.UperInputStream;
-import io.github.ahmedabadawi.asn1java.handwritten.uper.UperOutputStream;
+import io.github.ahmedabadawi.asn1java.runtime.uper.UperInputStream;
+import io.github.ahmedabadawi.asn1java.runtime.uper.UperOutputStream;
 
 public class VersionCodec {
 

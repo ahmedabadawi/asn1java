@@ -3,8 +3,16 @@
 ASN.1 encoder/decoder in Java.
 
 ## Motivation
-Most ASN.1 tooling is either a black box of decades-old.
-This project builds a clean, readable Java implementation from first principles, starting with a minimal grammar, a hand-written codec, and a code generator that produces production-ready codecs from ASN.1 specs via a Maven plugin.
+
+Most ASN.1 tooling is either a black box of decades-old generated code or requires heavyweight external dependencies. This project builds a clean, readable Java implementation from first principles: a minimal grammar, a hand-written reference codec, and a code generator that produces production-ready UPER codecs from ASN.1 specs.
+
+## Modules
+
+| Module | Purpose |
+|---|---|
+| `core` | ANTLR4-based ASN.1 parser → typed AST, semantic validation, and JavaPoet-based code generator |
+| `runtime` | `UperOutputStream`, `UperInputStream`, `UperCodecSupport` — shared by generated codecs and the handwritten reference |
+| `handwritten-codec` | Reference UPER codec for `simple.asn`, written by hand to establish and verify golden tests |
 
 ## Scope
 - `UPER` encoding/decoding
