@@ -1,0 +1,8 @@
+VersionInfo DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Version ::= SEQUENCE {
+        major  INTEGER (0..MAX),
+        minor  INTEGER (0..MAX)
+    }
+
+END

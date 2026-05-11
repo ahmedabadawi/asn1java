@@ -13,6 +13,47 @@ Most ASN.1 tooling is either a black box of decades-old generated code or requir
 | `core` | ANTLR4-based ASN.1 parser → typed AST, semantic validation, and JavaPoet-based code generator |
 | `runtime` | `UperOutputStream`, `UperInputStream`, `UperCodecSupport` — shared by generated codecs and the handwritten reference |
 | `handwritten-codec` | Reference UPER codec for `simple.asn`, written by hand to establish and verify golden tests |
+| `plugin` | Maven plugin (`asn1java-maven-plugin`) — runs at `generate-sources`, parses `.asn` files, generates model records and UPER codec classes |
+| `sample` | End-to-end consumer of the plugin; approval tests verify generated codec output matches the golden-test hex files byte-for-byte |
+
+## Using the plugin
+
+Add the plugin to your `pom.xml`. The generated code depends on `asn1java-runtime`, so declare that dependency too:
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>io.github.ahmedabadawi</groupId>
+        <artifactId>asn1java-runtime</artifactId>
+        <version>VERSION</version>
+    </dependency>
+</dependencies>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>io.github.ahmedabadawi</groupId>
+            <artifactId>asn1java-maven-plugin</artifactId>
+            <version>VERSION</version>
+            <executions>
+                <execution>
+                    <goals><goal>generate</goal></goals>
+                </execution>
+            </executions>
+            <configuration>
+                <specFiles>
+                    <specFile>${project.basedir}/src/main/asn1/my.asn</specFile>
+                </specFiles>
+                <basePackage>com.example.gen</basePackage>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin generates:
+- `com.example.gen.mymodule.MyType` — Java record for each `SEQUENCE`
+- `com.example.gen.mymodule.MyTypeCodec` — UPER encoder/decoder for each type
 
 ## Scope
 - `UPER` encoding/decoding
