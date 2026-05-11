@@ -8,13 +8,13 @@ Most ASN.1 tooling is either a black box of decades-old generated code or requir
 
 ## Modules
 
-| Module | Purpose |
-|---|---|
-| `core` | ANTLR4-based ASN.1 parser → typed AST, semantic validation, and JavaPoet-based code generator |
-| `runtime` | `UperOutputStream`, `UperInputStream`, `UperCodecSupport` — shared by generated codecs and the handwritten reference |
-| `handwritten-codec` | Reference UPER codec for `simple.asn`, written by hand to establish and verify golden tests |
-| `plugin` | Maven plugin (`asn1java-maven-plugin`) — runs at `generate-sources`, parses `.asn` files, generates model records and UPER codec classes |
-| `sample` | End-to-end consumer of the plugin; approval tests verify generated codec output matches the golden-test hex files byte-for-byte |
+| Module              | Purpose                                                                                                                                  |
+|---------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `core`              | ANTLR4-based ASN.1 parser → typed AST, semantic validation, and JavaPoet-based code generator                                            |
+| `runtime`           | `UperOutputStream`, `UperInputStream`, `UperCodecSupport` — shared by generated codecs and the handwritten reference                     |
+| `handwritten-codec` | Reference UPER codec for `simple.asn`, written by hand to establish and verify golden tests                                              |
+| `plugin`            | Maven plugin (`asn1java-maven-plugin`) — runs at `generate-sources`, parses `.asn` files, generates model records and UPER codec classes |
+| `sample`            | End-to-end consumer of the plugin; approval tests verify generated codec output matches the golden-test hex files byte-for-byte          |
 
 ## Using the plugin
 
