@@ -1,0 +1,6 @@
+spec:    spec/person.asn
+type:    Person
+input:   examples/person/valid-2.json
+hex:     00
+bytes:   1
+bits:    8 (byte-padded)

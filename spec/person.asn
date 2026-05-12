@@ -1,0 +1,7 @@
+PersonInfo DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Person ::= SEQUENCE {
+        name  UTF8String
+    }
+
+END
