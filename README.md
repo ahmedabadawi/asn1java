@@ -76,7 +76,10 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 12. Add approval tests to the example application to validate against the `golden-tests`
 
 ## Current Constructs
-- [ ] Positive integers, single `SEQUENCE`
+- [x] `INTEGER (0..MAX)` — semi-constrained whole number
+- [x] `INTEGER (lb..ub)` — constrained whole number
+- [x] `BOOLEAN` — single-bit encoding
+- [x] Single `SEQUENCE` with INTEGER and BOOLEAN fields
 
 ## Known Issues
 
