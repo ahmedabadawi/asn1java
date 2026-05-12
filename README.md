@@ -79,7 +79,8 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 - [x] `INTEGER (0..MAX)` — semi-constrained whole number
 - [x] `INTEGER (lb..ub)` — constrained whole number
 - [x] `BOOLEAN` — single-bit encoding
-- [x] Single `SEQUENCE` with INTEGER and BOOLEAN fields
+- [x] `UTF8String` — unconstrained UTF-8 string (§26 length determinant + bytes)
+- [x] Single `SEQUENCE` with INTEGER, BOOLEAN, and UTF8String fields
 
 ## Known Issues
 
