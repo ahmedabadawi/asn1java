@@ -1,6 +1,7 @@
 package io.github.ahmedabadawi.asn1java.core.codegen;
 
 import com.palantir.javapoet.JavaFile;
+import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
@@ -114,6 +115,41 @@ class Asn1CodeGeneratorTest {
         String codec = findFile(files, "MyIntCodec").toString();
         assertThat(codec).contains("public byte[] encode(");
         assertThat(codec).contains("public MyInt decode(");
+    }
+
+    @Test
+    void generate_booleanFieldInSequence_producesJavaBooleanType() {
+        var module = new ModuleNode("DeviceInfo", List.of(
+                new TypeAssignmentNode("Device", new SequenceTypeNode(List.of(
+                        new FieldNode("active", new BooleanTypeNode())
+                )))
+        ));
+        var files = new Asn1CodeGenerator("io.example").generate(module);
+        String model = findFile(files, "record Device").toString();
+        assertThat(model).contains("boolean active");
+    }
+
+    @Test
+    void generate_booleanField_emitsSingleBitWriteAndRead() {
+        var module = new ModuleNode("DeviceInfo", List.of(
+                new TypeAssignmentNode("Device", new SequenceTypeNode(List.of(
+                        new FieldNode("active", new BooleanTypeNode())
+                )))
+        ));
+        var files = new Asn1CodeGenerator("io.example").generate(module);
+        String codec = findFile(files, "DeviceCodec").toString();
+        assertThat(codec).contains("? 1 : 0, 1)");
+        assertThat(codec).contains("readBits(1) != 0");
+    }
+
+    @Test
+    void generate_topLevelBooleanType_producesBooleanRecord() {
+        var module = new ModuleNode("Types", List.of(
+                new TypeAssignmentNode("Flag", new BooleanTypeNode())
+        ));
+        var files = new Asn1CodeGenerator("io.example").generate(module);
+        String model = findFile(files, "record Flag").toString();
+        assertThat(model).contains("boolean value");
     }
 
     @Test

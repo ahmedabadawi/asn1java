@@ -7,6 +7,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
@@ -50,10 +51,12 @@ final class CodecGenerator {
 
         // Validation
         for (EncodedField f : fields) {
-            m.beginControlFlow("if (model.$N() < $L)", f.name(), f.lowerBound())
-                    .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                            f.name() + " must be >= " + f.lowerBound())
-                    .endControlFlow();
+            if (f.encoding() != Encoding.BOOLEAN) {
+                m.beginControlFlow("if (model.$N() < $L)", f.name(), f.lowerBound())
+                        .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                                f.name() + " must be >= " + f.lowerBound())
+                        .endControlFlow();
+            }
         }
 
         m.addStatement("$T out = new $T()", UPER_OUTPUT_STREAM, UPER_OUTPUT_STREAM);
@@ -103,6 +106,7 @@ final class CodecGenerator {
                 }
             }
             case ZERO_RANGE -> { /* nothing to encode */ }
+            case BOOLEAN -> m.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", f.name());
         }
     }
 
@@ -126,15 +130,22 @@ final class CodecGenerator {
                 }
             }
             case ZERO_RANGE -> m.addStatement("int $N = $L", f.name(), f.lowerBound());
+            case BOOLEAN -> m.addStatement("boolean $N = in.readBits(1) != 0", f.name());
         }
     }
 
     private static List<EncodedField> collectFields(TypeAssignmentNode ta) {
         return switch (ta.type()) {
             case SequenceTypeNode seq -> seq.fields().stream()
-                    .map(f -> toEncodedField(f.name(), (IntegerTypeNode) f.type()))
+                    .map(f -> switch (f.type()) {
+                        case IntegerTypeNode intType -> toEncodedField(f.name(), intType);
+                        case BooleanTypeNode ignored -> new EncodedField(f.name(), 0, Encoding.BOOLEAN, 1);
+                        case SequenceTypeNode ignored -> throw new IllegalArgumentException(
+                                "nested SEQUENCE not supported");
+                    })
                     .collect(Collectors.toList());
             case IntegerTypeNode intType -> List.of(toEncodedField("value", intType));
+            case BooleanTypeNode ignored -> List.of(new EncodedField("value", 0, Encoding.BOOLEAN, 1));
         };
     }
 
@@ -157,7 +168,7 @@ final class CodecGenerator {
         };
     }
 
-    private enum Encoding { SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE }
+    private enum Encoding { SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN }
 
     private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {}
 }
