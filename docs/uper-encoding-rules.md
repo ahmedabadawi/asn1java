@@ -114,6 +114,32 @@ No length prefix, no constraint syntax, no offset.
 
 ---
 
+## UTF8String — unconstrained (§26 + §10.7)
+
+An unconstrained UTF8String (no SIZE constraint) is encoded as a length determinant
+followed by the raw UTF-8 bytes of the string value.
+
+**Length determinant (§10.7):**
+- Byte count < 128: 1 byte (the count itself, high bit = 0).
+- Byte count 128–16383: 2 bytes (0x80 | count >> 8, count & 0xFF).
+
+This is distinct from the semi-constrained integer encoding (§12.2.6): there is no
+separate "byte-count-of-the-count" prefix.
+
+**Steps:**
+1. Encode the string as UTF-8 bytes; let `n` = byte count.
+2. Write the length determinant for `n` (1 or 2 bytes per §10.7).
+3. Write each of the `n` UTF-8 bytes as 8 bits.
+
+**Examples:**
+
+| value     | UTF-8 bytes                      | length byte | full hex       |
+|-----------|----------------------------------|-------------|----------------|
+| `"hello"` | `68 65 6c 6c 6f` (5 bytes)       | `05`        | `0568656c6c6f` |
+| `""`      | (none)                           | `00`        | `00`           |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
