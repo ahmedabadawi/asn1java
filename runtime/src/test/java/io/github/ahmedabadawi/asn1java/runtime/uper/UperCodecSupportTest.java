@@ -53,4 +53,39 @@ class UperCodecSupportTest {
         UperCodecSupport.encodeSemiConstrainedInt(out, 1);
         assertThat(out.toByteArray()).isEqualTo(new byte[]{0x01, 0x01});
     }
+
+    private String roundTripString(String value) {
+        var out = new UperOutputStream();
+        UperCodecSupport.encodeUtf8String(out, value);
+        var in = new UperInputStream(out.toByteArray());
+        return UperCodecSupport.decodeUtf8String(in);
+    }
+
+    @Test
+    void encodeUtf8String_WhenEmpty_ShouldRoundTrip() {
+        assertThat(roundTripString("")).isEqualTo("");
+    }
+
+    @Test
+    void encodeUtf8String_WhenAscii_ShouldRoundTrip() {
+        assertThat(roundTripString("hello")).isEqualTo("hello");
+    }
+
+    @Test
+    void encodeUtf8String_WhenEmpty_ShouldProduceSingleZeroByte() {
+        // §10.7: empty string → length byte 0x00, no payload
+        var out = new UperOutputStream();
+        UperCodecSupport.encodeUtf8String(out, "");
+        assertThat(out.toByteArray()).isEqualTo(new byte[]{0x00});
+    }
+
+    @Test
+    void encodeUtf8String_WhenHello_ShouldMatchOracleHex() {
+        // oracle: "hello" → 0568656c6c6f
+        var out = new UperOutputStream();
+        UperCodecSupport.encodeUtf8String(out, "hello");
+        var sb = new StringBuilder();
+        for (byte b : out.toByteArray()) sb.append("%02x".formatted(b));
+        assertThat(sb.toString()).isEqualTo("0568656c6c6f");
+    }
 }
