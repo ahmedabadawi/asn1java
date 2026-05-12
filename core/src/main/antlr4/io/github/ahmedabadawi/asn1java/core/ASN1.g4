@@ -27,7 +27,11 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT integerType
+    : LOWER_IDENT (integerType | booleanType)
+    ;
+
+booleanType
+    : BOOLEAN
     ;
 
 integerType
@@ -57,6 +61,7 @@ BEGIN       : 'BEGIN';
 END         : 'END';
 SEQUENCE    : 'SEQUENCE';
 INTEGER     : 'INTEGER';
+BOOLEAN     : 'BOOLEAN';
 MAX         : 'MAX';
 
 // Punctuation

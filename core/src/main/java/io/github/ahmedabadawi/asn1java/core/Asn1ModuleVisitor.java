@@ -1,6 +1,7 @@
 package io.github.ahmedabadawi.asn1java.core;
 
 import io.github.ahmedabadawi.asn1java.core.ast.*;
+import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.List;
 
@@ -42,11 +43,19 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     @Override
     public FieldNode visitField(ASN1Parser.FieldContext ctx) {
         String name = ctx.LOWER_IDENT().getText();
-        TypeNode type = switch (visit(ctx.integerType())) {
+        ParserRuleContext typeCtx = ctx.integerType() != null
+                ? ctx.integerType()
+                : ctx.booleanType();
+        TypeNode type = switch (visit(typeCtx)) {
             case TypeNode t -> t;
-            default -> throw new IllegalStateException("unexpected node for integerType: " + ctx.integerType().getText());
+            default -> throw new IllegalStateException("unexpected node for field type: " + typeCtx.getText());
         };
         return new FieldNode(name, type);
+    }
+
+    @Override
+    public BooleanTypeNode visitBooleanType(ASN1Parser.BooleanTypeContext ctx) {
+        return new BooleanTypeNode();
     }
 
     @Override

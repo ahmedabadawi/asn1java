@@ -19,6 +19,7 @@ public class Asn1SemanticValidator {
             switch (type.type()) {
                 case SequenceTypeNode seq -> checkSequence(type.name(), seq, errors);
                 case IntegerTypeNode it   -> checkConstraint(type.name(), it.constraint(), errors);
+                case BooleanTypeNode ignored -> {}
             }
         }
 
@@ -46,6 +47,7 @@ public class Asn1SemanticValidator {
             switch (field.type()) {
                 case IntegerTypeNode it   -> checkConstraint(typeName + "." + field.name(), it.constraint(), errors);
                 case SequenceTypeNode st  -> checkSequence(typeName + "." + field.name(), st, errors);
+                case BooleanTypeNode ignored -> {}
             }
         }
     }
