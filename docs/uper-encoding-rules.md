@@ -90,6 +90,30 @@ not a multiple of 8.
 
 ---
 
+## BOOLEAN (§12.8)
+
+A boolean value is encoded as a single bit: `1` for TRUE, `0` for FALSE.
+No length prefix, no constraint syntax, no offset.
+
+**Steps:**
+1. Write 1 bit: `1` if value is TRUE, `0` if FALSE.
+
+**Examples:**
+
+| value | bit | byte (zero-padded) | hex  |
+|-------|-----|--------------------|------|
+| TRUE  | `1` | `10000000`         | `80` |
+| FALSE | `0` | `00000000`         | `00` |
+
+**`Device` SEQUENCE encoding** (`active BOOLEAN`):
+
+| input         | bit | hex  |
+|---------------|-----|------|
+| active=true   | `1` | `80` |
+| active=false  | `0` | `00` |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
