@@ -10,6 +10,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -164,5 +165,43 @@ class Asn1CodeGeneratorTest {
         String codec = findFile(files, "FooCodec").toString();
         assertThat(codec).contains("- 10");
         assertThat(codec).contains("+ 10");
+    }
+
+    @Test
+    void generate_utf8StringFieldInSequence_producesJavaStringType() {
+        var module = new ModuleNode("PersonInfo", List.of(
+                new TypeAssignmentNode("Person", new SequenceTypeNode(List.of(
+                        new FieldNode("name", new Utf8StringTypeNode())
+                )))
+        ));
+        var files = new Asn1CodeGenerator("io.example").generate(module);
+        String model = findFile(files, "record Person").toString();
+        assertThat(model).contains("String name");
+    }
+
+    @Test
+    void generate_utf8StringField_emitsUtf8StringHelperCalls() {
+        var module = new ModuleNode("PersonInfo", List.of(
+                new TypeAssignmentNode("Person", new SequenceTypeNode(List.of(
+                        new FieldNode("name", new Utf8StringTypeNode())
+                )))
+        ));
+        var files = new Asn1CodeGenerator("io.example").generate(module);
+        String codec = findFile(files, "PersonCodec").toString();
+        assertThat(codec).contains("encodeUtf8String");
+        assertThat(codec).contains("decodeUtf8String");
+    }
+
+    @Test
+    void generate_utf8StringField_emitsNullValidation() {
+        var module = new ModuleNode("PersonInfo", List.of(
+                new TypeAssignmentNode("Person", new SequenceTypeNode(List.of(
+                        new FieldNode("name", new Utf8StringTypeNode())
+                )))
+        ));
+        var files = new Asn1CodeGenerator("io.example").generate(module);
+        String codec = findFile(files, "PersonCodec").toString();
+        assertThat(codec).contains("== null");
+        assertThat(codec).contains("must not be null");
     }
 }

@@ -15,6 +15,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 
 import javax.lang.model.element.Modifier;
 import java.util.ArrayList;
@@ -51,7 +52,12 @@ final class CodecGenerator {
 
         // Validation
         for (EncodedField f : fields) {
-            if (f.encoding() != Encoding.BOOLEAN) {
+            if (f.encoding() == Encoding.UTF8_STRING) {
+                m.beginControlFlow("if (model.$N() == null)", f.name())
+                        .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                                f.name() + " must not be null")
+                        .endControlFlow();
+            } else if (f.encoding() != Encoding.BOOLEAN) {
                 m.beginControlFlow("if (model.$N() < $L)", f.name(), f.lowerBound())
                         .addStatement("throw new $T($S)", IllegalArgumentException.class,
                                 f.name() + " must be >= " + f.lowerBound())
@@ -107,6 +113,8 @@ final class CodecGenerator {
             }
             case ZERO_RANGE -> { /* nothing to encode */ }
             case BOOLEAN -> m.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", f.name());
+            case UTF8_STRING -> m.addStatement("$T.encodeUtf8String(out, model.$N())",
+                    UPER_CODEC_SUPPORT, f.name());
         }
     }
 
@@ -131,6 +139,8 @@ final class CodecGenerator {
             }
             case ZERO_RANGE -> m.addStatement("int $N = $L", f.name(), f.lowerBound());
             case BOOLEAN -> m.addStatement("boolean $N = in.readBits(1) != 0", f.name());
+            case UTF8_STRING -> m.addStatement("$T $N = $T.decodeUtf8String(in)",
+                    ClassName.get("java.lang", "String"), f.name(), UPER_CODEC_SUPPORT);
         }
     }
 
@@ -140,12 +150,14 @@ final class CodecGenerator {
                     .map(f -> switch (f.type()) {
                         case IntegerTypeNode intType -> toEncodedField(f.name(), intType);
                         case BooleanTypeNode ignored -> new EncodedField(f.name(), 0, Encoding.BOOLEAN, 1);
+                        case Utf8StringTypeNode ignored -> new EncodedField(f.name(), 0, Encoding.UTF8_STRING, 0);
                         case SequenceTypeNode ignored -> throw new IllegalArgumentException(
                                 "nested SEQUENCE not supported");
                     })
                     .collect(Collectors.toList());
             case IntegerTypeNode intType -> List.of(toEncodedField("value", intType));
             case BooleanTypeNode ignored -> List.of(new EncodedField("value", 0, Encoding.BOOLEAN, 1));
+            case Utf8StringTypeNode ignored -> List.of(new EncodedField("value", 0, Encoding.UTF8_STRING, 0));
         };
     }
 
@@ -168,7 +180,7 @@ final class CodecGenerator {
         };
     }
 
-    private enum Encoding { SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN }
+    private enum Encoding { SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING }
 
     private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {}
 }
