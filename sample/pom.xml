@@ -48,6 +48,7 @@
                 <configuration>
                     <specFiles>
                         <specFile>${project.basedir}/src/main/asn1/simple.asn</specFile>
+                        <specFile>${project.basedir}/src/main/asn1/device.asn</specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>
