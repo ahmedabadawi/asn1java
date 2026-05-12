@@ -1,0 +1,7 @@
+DeviceInfo DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Device ::= SEQUENCE {
+        active  BOOLEAN
+    }
+
+END

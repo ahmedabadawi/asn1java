@@ -1,0 +1,6 @@
+spec:    spec/device.asn
+type:    Device
+input:   examples/device/valid-2.json
+hex:     00
+bytes:   1
+bits:    8 (byte-padded)
