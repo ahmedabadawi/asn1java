@@ -78,27 +78,18 @@ Create `examples/<name>/valid-1.json`, `valid-2.json` (at minimum) and `invalid-
 
 `asn1tools` is the oracle. Use it to encode each valid example and write the output to `golden-tests/<name>/`.
 
-```python
-import asn1tools, json, pathlib
+Use the oracle script at `oracle-test-asn1tools/generate.sh`. It builds a Docker image with asn1tools and writes `.hex`, `.uper`, and `.txt` artifacts to `golden-tests/<spec-name>/`:
 
-codec = asn1tools.compile_files(['spec/<name>.asn'], 'uper')
-
-for example in ['valid-1', 'valid-2']:
-    data = json.loads(pathlib.Path(f'examples/<name>/{example}.json').read_text())
-    encoded = codec.encode('MyType', data)
-    hex_str = encoded.hex()
-    pathlib.Path(f'golden-tests/<name>/{example}.hex').write_text(hex_str)
-
-    # Write metadata file
-    pathlib.Path(f'golden-tests/<name>/{example}.txt').write_text(
-        f"spec:    spec/<name>.asn\n"
-        f"type:    MyType\n"
-        f"input:   examples/<name>/{example}.json\n"
-        f"hex:     {hex_str}\n"
-        f"bytes:   {len(encoded)}\n"
-        f"bits:    {len(encoded) * 8} (byte-padded)\n"
-    )
+```bash
+./oracle-test-asn1tools/generate.sh \
+    --spec spec/<name>.asn \
+    --type MyType \
+    --input examples/<name>/valid-1.json \
+    --input examples/<name>/valid-2.json \
+    --input examples/<name>/invalid-1.json
 ```
+
+Invalid inputs are expected to fail — `generate.sh` writes a `.err` file and exits non-zero for them, which is normal. Only valid inputs produce `.hex` golden files.
 
 The `.hex` file contains only the lowercase hex string (no newline prefix, stripped on load).
 
