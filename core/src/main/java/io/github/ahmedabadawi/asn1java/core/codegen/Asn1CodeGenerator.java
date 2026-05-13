@@ -9,19 +9,23 @@ import java.util.List;
 
 public final class Asn1CodeGenerator {
 
-    private final String basePackage;
+  private final String basePackage;
 
-    public Asn1CodeGenerator(String basePackage) {
-        this.basePackage = basePackage;
-    }
+  public Asn1CodeGenerator(String basePackage) {
+    this.basePackage = basePackage;
+  }
 
-    public List<JavaFile> generate(ModuleNode module) {
-        String pkg = basePackage + "." + module.name().toLowerCase();
-        List<JavaFile> files = new ArrayList<>();
-        for (TypeAssignmentNode ta : module.types()) {
-            files.add(ModelGenerator.generate(pkg, ta));
-            files.add(CodecGenerator.generate(pkg, ta));
-        }
-        return files;
-    }
+  public List<JavaFile> generate(ModuleNode module) {
+    String targetPackage = basePackage + "." + module.name().toLowerCase();
+    return module.types().stream()
+        .map(typeAssignment -> generate(targetPackage, typeAssignment))
+        .flatMap(List::stream)
+        .toList();
+  }
+
+  private List<JavaFile> generate(String targetPackage, TypeAssignmentNode typeAssignment) {
+    return List.of(
+        ModelGenerator.generate(targetPackage, typeAssignment),
+        CodecGenerator.generate(targetPackage, typeAssignment));
+  }
 }

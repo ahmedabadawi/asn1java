@@ -1,16 +1,17 @@
 package io.github.ahmedabadawi.asn1java.sample;
 
+import static io.github.ahmedabadawi.asn1java.sample.TestHelpers.fromHex;
+import static io.github.ahmedabadawi.asn1java.sample.TestHelpers.toHex;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import io.github.ahmedabadawi.asn1java.sample.versioninfo.Version;
 import io.github.ahmedabadawi.asn1java.sample.versioninfo.VersionCodec;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class VersionCodecApprovalTest {
 
@@ -20,22 +21,6 @@ class VersionCodecApprovalTest {
 
     private String goldenHex(String name) throws IOException {
         return Files.readString(GOLDEN_DIR.resolve(name + ".hex")).strip();
-    }
-
-    private static String toHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append("%02x".formatted(b));
-        }
-        return sb.toString();
-    }
-
-    private static byte[] fromHex(String hex) {
-        byte[] bytes = new byte[hex.length() / 2];
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) Integer.parseInt(hex, i * 2, i * 2 + 2, 16);
-        }
-        return bytes;
     }
 
     @Test

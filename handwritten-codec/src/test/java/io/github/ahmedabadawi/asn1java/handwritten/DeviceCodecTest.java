@@ -1,15 +1,16 @@
 package io.github.ahmedabadawi.asn1java.handwritten;
 
+import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.fromHex;
+import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.toHex;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.github.ahmedabadawi.asn1java.handwritten.device.Device;
 import io.github.ahmedabadawi.asn1java.handwritten.device.DeviceCodec;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class DeviceCodecTest {
 
@@ -19,22 +20,6 @@ class DeviceCodecTest {
 
     private String goldenHex(String name) throws IOException {
         return Files.readString(GOLDEN_DIR.resolve(name + ".hex")).strip();
-    }
-
-    private static String toHex(byte[] bytes) {
-        var sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append("%02x".formatted(b));
-        }
-        return sb.toString();
-    }
-
-    private static byte[] fromHex(String hex) {
-        byte[] bytes = new byte[hex.length() / 2];
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) Integer.parseInt(hex, i * 2, i * 2 + 2, 16);
-        }
-        return bytes;
     }
 
     @Test

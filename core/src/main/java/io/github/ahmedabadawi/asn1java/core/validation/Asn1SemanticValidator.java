@@ -1,6 +1,15 @@
 package io.github.ahmedabadawi.asn1java.core.validation;
 
-import io.github.ahmedabadawi.asn1java.core.ast.*;
+import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
+import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SemanticException;
 
 import java.util.ArrayList;
@@ -10,58 +19,66 @@ import java.util.Set;
 
 public class Asn1SemanticValidator {
 
-    public void validate(ModuleNode module) {
-        List<ValidationError> errors = new ArrayList<>();
+  public void validate(ModuleNode module) {
+    List<ValidationError> errors = new ArrayList<>();
 
-        checkDuplicateTypeNames(module, errors);
+    checkDuplicateTypeNames(module, errors);
 
-        for (TypeAssignmentNode type : module.types()) {
-            switch (type.type()) {
-                case SequenceTypeNode seq -> checkSequence(type.name(), seq, errors);
-                case IntegerTypeNode it   -> checkConstraint(type.name(), it.constraint(), errors);
-                case BooleanTypeNode ignored -> {}
-                case Utf8StringTypeNode ignored -> {}
-            }
+    for (TypeAssignmentNode type : module.types()) {
+      switch (type.type()) {
+        case SequenceTypeNode seq -> checkSequence(type.name(), seq, errors);
+        case IntegerTypeNode it -> checkConstraint(type.name(), it.constraint(), errors);
+        case BooleanTypeNode ignored -> {
         }
-
-        if (!errors.isEmpty()) {
-            throw new Asn1SemanticException(errors);
+        case Utf8StringTypeNode ignored -> {
         }
+      }
     }
 
-    private void checkDuplicateTypeNames(ModuleNode module, List<ValidationError> errors) {
-        Set<String> seen = new HashSet<>();
-        for (TypeAssignmentNode type : module.types()) {
-            if (!seen.add(type.name())) {
-                errors.add(new ValidationError("Duplicate type name: " + type.name()));
-            }
-        }
+    if (!errors.isEmpty()) {
+      throw new Asn1SemanticException(errors);
     }
+  }
 
-    private void checkSequence(String typeName, SequenceTypeNode seq, List<ValidationError> errors) {
-        Set<String> seen = new HashSet<>();
-        for (FieldNode field : seq.fields()) {
-            if (!seen.add(field.name())) {
-                errors.add(new ValidationError(
-                        "Duplicate field name '" + field.name() + "' in type " + typeName));
-            }
-            switch (field.type()) {
-                case IntegerTypeNode it   -> checkConstraint(typeName + "." + field.name(), it.constraint(), errors);
-                case SequenceTypeNode st  -> checkSequence(typeName + "." + field.name(), st, errors);
-                case BooleanTypeNode ignored -> {}
-                case Utf8StringTypeNode ignored -> {}
-            }
-        }
+  private void checkDuplicateTypeNames(ModuleNode module, List<ValidationError> errors) {
+    Set<String> seen = new HashSet<>();
+    for (TypeAssignmentNode type : module.types()) {
+      if (!seen.add(type.name())) {
+        errors.add(new ValidationError("Duplicate type name: " + type.name()));
+      }
     }
+  }
 
-    private void checkConstraint(String location, ConstraintNode constraint, List<ValidationError> errors) {
-        switch (constraint.upperBound()) {
-            case NumberBound nb when nb.value() < constraint.lowerBound() ->
-                errors.add(new ValidationError(
-                        "Inverted constraint bounds at " + location +
-                        ": lower=" + constraint.lowerBound() + " > upper=" + nb.value()));
-            case NumberBound nb -> {}
-            case MaxBound mb    -> {}
+  private void checkSequence(String typeName, SequenceTypeNode seq, List<ValidationError> errors) {
+    Set<String> seen = new HashSet<>();
+    for (FieldNode field : seq.fields()) {
+      if (!seen.add(field.name())) {
+        errors.add(
+            new ValidationError("Duplicate field name '" + field.name() + "' in type " + typeName));
+      }
+      switch (field.type()) {
+        case IntegerTypeNode it ->
+            checkConstraint(typeName + "." + field.name(), it.constraint(), errors);
+        case SequenceTypeNode st -> checkSequence(typeName + "." + field.name(), st, errors);
+        case BooleanTypeNode ignored -> {
         }
+        case Utf8StringTypeNode ignored -> {
+        }
+      }
     }
+  }
+
+  private void checkConstraint(String location, ConstraintNode constraint,
+      List<ValidationError> errors) {
+    switch (constraint.upperBound()) {
+      case NumberBound nb when nb.value() < constraint.lowerBound() -> errors.add(
+          new ValidationError(
+              "Inverted constraint bounds at %s: lower=%d > upper=%d"
+                  .formatted(location, constraint.lowerBound() ,nb.value())));
+      case NumberBound nb -> {
+      }
+      case MaxBound mb -> {
+      }
+    }
+  }
 }

@@ -44,7 +44,9 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <goals><goal>antlr4</goal></goals>
+                        <goals>
+                            <goal>antlr4</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

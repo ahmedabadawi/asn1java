@@ -15,8 +15,10 @@ Maven multi-module Java 21 project that parses ASN.1 specs and generates UPER co
 ## Coding conventions
 
 - **Java 21**: use records for data, sealed interfaces for sum types, `var` for locals, pattern-matching `switch`.
+- **Indentation**: 2 spaces. Never 4 spaces or tabs.
 - **String formatting**: `"template %s".formatted(value)`, never `+` concatenation.
-- **Imports**: always import; never use fully qualified names inline.
+- **Imports**: always use explicit per-class imports — never wildcard (`import foo.*`); never fully-qualified inline names. Order: static imports first (alphabetically), blank line, then regular imports (alphabetically).
+- **Variable names**: use full descriptive names; avoid abbreviations and single-letter locals (`constraint` not `c`, `typeAssignment` not `ta`, `context` not `ctx`, `targetPackage` not `pkg`, `methodBuilder` not `m`, `field` not `f`).
 - **Package-private** for internal classes (no `private` modifier on Mojo fields, so tests can set them directly).
 - **No comments** unless the WHY is non-obvious (not the WHAT).
 - **Test method naming**: `operation_WhenCondition_ShouldExpectedOutcome`.
@@ -121,7 +123,7 @@ class MyTypeCodecTest {
         return Files.readString(GOLDEN_DIR.resolve(name + ".hex")).strip();
     }
 
-    // toHex / fromHex helpers — copy verbatim from VersionCodecTest
+    // toHex / fromHex live in TestHelpers — import statically, do not redeclare
 
     @Test void encodeValid1() throws IOException { ... }
     @Test void encodeValid2() throws IOException { ... }
@@ -164,7 +166,7 @@ The compiler will then flag every exhaustive `switch` on `TypeNode` that is miss
 
 Update `Asn1ModuleVisitor` in `core/src/main/java/.../core/Asn1ModuleVisitor.java`:
 - Add a `visitXxxType(...)` method that returns the new AST node.
-- Follow the existing pattern: `visit(ctx.child())` → pattern-matched `switch` → construct the record.
+- Follow the existing pattern: `visit(context.child())` → pattern-matched `switch` → construct the record. Name the parameter `context`, not `ctx`.
 
 Update `Asn1SemanticValidator` in `core/src/main/java/.../core/validation/Asn1SemanticValidator.java` if the new type has constraints that need semantic checking.
 
@@ -177,7 +179,7 @@ The compiler errors from the sealed interface change (step 7) will point to thes
 **`core/src/main/java/.../core/codegen/ModelGenerator.java`** — add a new `switch` arm to `generate()`:
 
 ```java
-case BooleanTypeNode ignored -> buildBooleanWrapperRecord(ta.name());
+case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
 ```
 
 **`core/src/main/java/.../core/codegen/CodecGenerator.java`** — add encoding dispatch to `collectFields()` and `toEncodedField()`:

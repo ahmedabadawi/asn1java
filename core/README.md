@@ -1,6 +1,7 @@
 # core
 
-The `core` module parses ASN.1 source text into a typed AST using an ANTLR4-generated parser, then validates the AST for semantic correctness.
+The `core` module parses ASN.1 source text into a typed AST using an ANTLR4-generated parser, then validates the AST for
+semantic correctness.
 
 ## Parser generation
 
@@ -10,7 +11,9 @@ The grammar lives in:
 src/main/antlr4/io/github/ahmedabadawi/asn1java/core/ASN1.g4
 ```
 
-The `antlr4-maven-plugin` (version 4.13.2, inherited from the parent POM) runs automatically during the `generate-sources` phase and emits Java sources into `target/generated-sources/antlr4/`. Visitor generation is enabled via `<visitor>true</visitor>` in the plugin configuration.
+The `antlr4-maven-plugin` (version 4.13.2, inherited from the parent POM) runs automatically during the
+`generate-sources` phase and emits Java sources into `target/generated-sources/antlr4/`. Visitor generation is enabled
+via `<visitor>true</visitor>` in the plugin configuration.
 
 Generated classes:
 
@@ -66,9 +69,11 @@ upperBound     : NUMBER | MAX
 
 1. **Lex** — wraps `source` in an `ANTLRInputStream`, creates `ASN1Lexer`.
 2. **Token stream** — feeds the lexer into a `CommonTokenStream`.
-3. **Parse** — creates `ASN1Parser`; a custom `DiagnosticErrorListener` converts any syntax error into an `Asn1SyntaxException` (contains line number and character offset).
+3. **Parse** — creates `ASN1Parser`; a custom `DiagnosticErrorListener` converts any syntax error into an
+   `Asn1SyntaxException` (contains line number and character offset).
 4. **Visit** — `Asn1ModuleVisitor` walks the parse tree top-down and builds the AST (see below).
-5. **Validate** — `Asn1SemanticValidator` checks the finished AST and throws `Asn1SemanticException` if any errors are found.
+5. **Validate** — `Asn1SemanticValidator` checks the finished AST and throws `Asn1SemanticException` if any errors are
+   found.
 6. Returns the root `ModuleNode`.
 
 ## AST structure
@@ -126,7 +131,8 @@ src/main/java/.../core/
 
 ## Code generation
 
-`Asn1CodeGenerator` uses [JavaPoet](https://github.com/palantir/javapoet) to emit Java source files from a `ModuleNode`. It produces two files per type assignment — a model record and a codec class — targeting a caller-supplied base package.
+`Asn1CodeGenerator` uses [JavaPoet](https://github.com/palantir/javapoet) to emit Java source files from a `ModuleNode`.
+It produces two files per type assignment — a model record and a codec class — targeting a caller-supplied base package.
 
 ```java
 ModuleNode module = Asn1Spec.parse(source);
@@ -134,7 +140,8 @@ List<JavaFile> files = new Asn1CodeGenerator("com.example.gen").generate(module)
 Asn1CodeWriter.writeTo(files, Path.of("src/main/java"));
 ```
 
-The generated package is `basePackage + "." + moduleName.toLowerCase()`. For the `VersionInfo` module with base package `com.example.gen` the output lands in `com.example.gen.versioninfo`.
+The generated package is `basePackage + "." + moduleName.toLowerCase()`. For the `VersionInfo` module with base package
+`com.example.gen` the output lands in `com.example.gen.versioninfo`.
 
 ### Generated model
 
@@ -152,15 +159,19 @@ public record MyInt(int value) {}
 
 ### Generated codec
 
-Each type gets a corresponding `*Codec` class with `encode(Model) → byte[]` and `decode(byte[]) → Model` instance methods. The encoding strategy is chosen from the ASN.1 constraint at generation time and emitted as a literal in the output:
+Each type gets a corresponding `*Codec` class with `encode(Model) → byte[]` and `decode(byte[]) → Model` instance
+methods. The encoding strategy is chosen from the ASN.1 constraint at generation time and emitted as a literal in the
+output:
 
-| Constraint | X.691 rule | Generated call |
-|---|---|---|
-| `INTEGER (lb..MAX)` or no constraint | Semi-constrained (§12.2.6) | `UperCodecSupport.encodeSemiConstrainedInt(out, value)` |
-| `INTEGER (lb..ub)` | Constrained whole number (§12.2.3) | `out.writeBits(value - lb, <bitCount>)` |
-| `INTEGER (n..n)` | Zero-range | nothing written |
+| Constraint                           | X.691 rule                         | Generated call                                          |
+|--------------------------------------|------------------------------------|---------------------------------------------------------|
+| `INTEGER (lb..MAX)` or no constraint | Semi-constrained (§12.2.6)         | `UperCodecSupport.encodeSemiConstrainedInt(out, value)` |
+| `INTEGER (lb..ub)`                   | Constrained whole number (§12.2.3) | `out.writeBits(value - lb, <bitCount>)`                 |
+| `INTEGER (n..n)`                     | Zero-range                         | nothing written                                         |
 
-`bitCount` is computed at generation time (`32 - Integer.numberOfLeadingZeros(ub - lb)`) and appears as an integer literal in the generated source. The generated codec depends on `asn1java-runtime` at runtime for `UperOutputStream`, `UperInputStream`, and `UperCodecSupport`.
+`bitCount` is computed at generation time (`32 - Integer.numberOfLeadingZeros(ub - lb)`) and appears as an integer
+literal in the generated source. The generated codec depends on `asn1java-runtime` at runtime for `UperOutputStream`,
+`UperInputStream`, and `UperCodecSupport`.
 
 ## Semantic validation
 
@@ -170,7 +181,8 @@ Each type gets a corresponding `*Codec` class with `encode(Model) → byte[]` an
 - **Duplicate field names** — two `FieldNode`s with the same name inside one `SEQUENCE`.
 - **Inverted constraint bounds** — `lowerBound > upperBound` for `NumberBound`.
 
-Errors carry a hierarchical location string (e.g. `TypeName.fieldName`) for precise reporting. All collected errors are surfaced together in a single `Asn1SemanticException` rather than stopping at the first one.
+Errors carry a hierarchical location string (e.g. `TypeName.fieldName`) for precise reporting. All collected errors are
+surfaced together in a single `Asn1SemanticException` rather than stopping at the first one.
 
 ## Running a parse
 

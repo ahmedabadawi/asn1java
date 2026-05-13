@@ -23,14 +23,14 @@ bound, followed by a length determinant and the value bytes.
 
 **Examples** (`INTEGER (0..MAX)`):
 
-| value | n   | encoding  |
-|-------|-----|-----------|
-| 0     | `01`| `01 00`   |
-| 1     | `01`| `01 01`   |
-| 2     | `01`| `01 02`   |
-| 24    | `01`| `01 18`   |
-| 255   | `01`| `01 ff`   |
-| 256   | `02`| `02 01 00`|
+| value | n    | encoding   |
+|-------|------|------------|
+| 0     | `01` | `01 00`    |
+| 1     | `01` | `01 01`    |
+| 2     | `01` | `01 02`    |
+| 24    | `01` | `01 18`    |
+| 255   | `01` | `01 ff`    |
+| 256   | `02` | `02 01 00` |
 
 **`Version` SEQUENCE encoding** (`major INTEGER (0..MAX), minor INTEGER (0..MAX)`):
 
@@ -67,10 +67,10 @@ If `range == 0` (both bounds are the same), the value is fully determined — wr
 
 **Examples** (`INTEGER (10..20)`, range = 10, bit\_count = 4):
 
-| value | offset | bits (binary) | notes |
-|-------|--------|---------------|-------|
+| value | offset | bits (binary) | notes       |
+|-------|--------|---------------|-------------|
 | 10    | 0      | `0000`        | lower bound |
-| 15    | 5      | `0101`        | |
+| 15    | 5      | `0101`        |             |
 | 20    | 10     | `1010`        | upper bound |
 
 ---
