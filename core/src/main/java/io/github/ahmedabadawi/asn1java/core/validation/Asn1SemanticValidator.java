@@ -20,6 +20,7 @@ public class Asn1SemanticValidator {
                 case SequenceTypeNode seq -> checkSequence(type.name(), seq, errors);
                 case IntegerTypeNode it   -> checkConstraint(type.name(), it.constraint(), errors);
                 case BooleanTypeNode ignored -> {}
+                case Utf8StringTypeNode ignored -> {}
             }
         }
 
@@ -48,6 +49,7 @@ public class Asn1SemanticValidator {
                 case IntegerTypeNode it   -> checkConstraint(typeName + "." + field.name(), it.constraint(), errors);
                 case SequenceTypeNode st  -> checkSequence(typeName + "." + field.name(), st, errors);
                 case BooleanTypeNode ignored -> {}
+                case Utf8StringTypeNode ignored -> {}
             }
         }
     }
