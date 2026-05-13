@@ -235,6 +235,8 @@ Run `mvn clean install` — all modules must be green.
 
 **`README.md`**: always update it when adding a new module, construct, or capability. Never leave it describing an older state of the project.
 
+**After each commit**: run `git status` and confirm the working tree is clean before moving to the next step. Untracked or modified files left over from the current step will silently end up in a later commit and corrupt the logical separation between commits.
+
 ---
 
 ## Commit messages
