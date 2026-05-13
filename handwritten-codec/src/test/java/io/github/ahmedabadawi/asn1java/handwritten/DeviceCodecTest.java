@@ -1,7 +1,5 @@
 package io.github.ahmedabadawi.asn1java.handwritten;
 
-import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.fromHex;
-import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.toHex;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.ahmedabadawi.asn1java.handwritten.device.Device;
@@ -10,11 +8,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
 class DeviceCodecTest {
 
     private static final DeviceCodec CODEC = new DeviceCodec();
+    private static final HexFormat HEX = HexFormat.of();
     private static final Path GOLDEN_DIR = Paths.get(
             System.getProperty("user.dir")).getParent().resolve("golden-tests/device");
 
@@ -28,7 +28,7 @@ class DeviceCodecTest {
         var device = new Device(true);
 
         // When
-        var hex = toHex(CODEC.encode(device));
+        var hex = HEX.formatHex(CODEC.encode(device));
 
         // Then
         assertThat(hex).isEqualTo(goldenHex("valid-1"));
@@ -40,7 +40,7 @@ class DeviceCodecTest {
         var device = new Device(false);
 
         // When
-        var hex = toHex(CODEC.encode(device));
+        var hex = HEX.formatHex(CODEC.encode(device));
 
         // Then
         assertThat(hex).isEqualTo(goldenHex("valid-2"));
@@ -49,7 +49,7 @@ class DeviceCodecTest {
     @Test
     void decode_WhenTrueBitEncoded_ShouldReturnActiveTrue() throws IOException {
         // Given
-        var bytes = fromHex(goldenHex("valid-1"));
+        var bytes = HEX.parseHex(goldenHex("valid-1"));
 
         // When
         var device = CODEC.decode(bytes);
@@ -61,7 +61,7 @@ class DeviceCodecTest {
     @Test
     void decode_WhenFalseBitEncoded_ShouldReturnActiveFalse() throws IOException {
         // Given
-        var bytes = fromHex(goldenHex("valid-2"));
+        var bytes = HEX.parseHex(goldenHex("valid-2"));
 
         // When
         var device = CODEC.decode(bytes);

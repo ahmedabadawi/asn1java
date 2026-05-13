@@ -1,7 +1,5 @@
 package io.github.ahmedabadawi.asn1java.sample;
 
-import static io.github.ahmedabadawi.asn1java.sample.TestHelpers.fromHex;
-import static io.github.ahmedabadawi.asn1java.sample.TestHelpers.toHex;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -11,11 +9,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
 class VersionCodecApprovalTest {
 
     private static final VersionCodec CODEC = new VersionCodec();
+    private static final HexFormat HEX = HexFormat.of();
     private static final Path GOLDEN_DIR = Paths.get(
             System.getProperty("user.dir")).getParent().resolve("golden-tests/simple");
 
@@ -25,22 +25,22 @@ class VersionCodecApprovalTest {
 
     @Test
     void encodeValid1() throws IOException {
-        assertEquals(goldenHex("valid-1"), toHex(CODEC.encode(new Version(1, 0))));
+        assertEquals(goldenHex("valid-1"), HEX.formatHex(CODEC.encode(new Version(1, 0))));
     }
 
     @Test
     void encodeValid2() throws IOException {
-        assertEquals(goldenHex("valid-2"), toHex(CODEC.encode(new Version(2, 24))));
+        assertEquals(goldenHex("valid-2"), HEX.formatHex(CODEC.encode(new Version(2, 24))));
     }
 
     @Test
     void decodeValid1() throws IOException {
-        assertEquals(new Version(1, 0), CODEC.decode(fromHex(goldenHex("valid-1"))));
+        assertEquals(new Version(1, 0), CODEC.decode(HEX.parseHex(goldenHex("valid-1"))));
     }
 
     @Test
     void decodeValid2() throws IOException {
-        assertEquals(new Version(2, 24), CODEC.decode(fromHex(goldenHex("valid-2"))));
+        assertEquals(new Version(2, 24), CODEC.decode(HEX.parseHex(goldenHex("valid-2"))));
     }
 
     @Test

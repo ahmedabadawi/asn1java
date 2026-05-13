@@ -1,7 +1,5 @@
 package io.github.ahmedabadawi.asn1java.handwritten;
 
-import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.fromHex;
-import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.toHex;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
@@ -11,11 +9,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
 class PersonCodecTest {
 
     private static final PersonCodec CODEC = new PersonCodec();
+    private static final HexFormat HEX = HexFormat.of();
     private static final Path GOLDEN_DIR = Paths.get(
             System.getProperty("user.dir")).getParent().resolve("golden-tests/person");
 
@@ -29,7 +29,7 @@ class PersonCodecTest {
         var person = new Person("hello");
 
         // When
-        var hex = toHex(CODEC.encode(person));
+        var hex = HEX.formatHex(CODEC.encode(person));
 
         // Then
         assertThat(hex).isEqualTo(goldenHex("valid-1"));
@@ -41,7 +41,7 @@ class PersonCodecTest {
         var person = new Person("");
 
         // When
-        var hex = toHex(CODEC.encode(person));
+        var hex = HEX.formatHex(CODEC.encode(person));
 
         // Then
         assertThat(hex).isEqualTo(goldenHex("valid-2"));
@@ -50,7 +50,7 @@ class PersonCodecTest {
     @Test
     void decode_WhenHelloEncoded_ShouldReturnNameHello() throws IOException {
         // Given
-        var bytes = fromHex(goldenHex("valid-1"));
+        var bytes = HEX.parseHex(goldenHex("valid-1"));
 
         // When
         var person = CODEC.decode(bytes);
@@ -62,7 +62,7 @@ class PersonCodecTest {
     @Test
     void decode_WhenEmptyEncoded_ShouldReturnEmptyName() throws IOException {
         // Given
-        var bytes = fromHex(goldenHex("valid-2"));
+        var bytes = HEX.parseHex(goldenHex("valid-2"));
 
         // When
         var person = CODEC.decode(bytes);
