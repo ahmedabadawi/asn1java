@@ -1,16 +1,17 @@
 package io.github.ahmedabadawi.asn1java.handwritten;
 
+import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.fromHex;
+import static io.github.ahmedabadawi.asn1java.handwritten.TestHelpers.toHex;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
+
 import io.github.ahmedabadawi.asn1java.handwritten.person.Person;
 import io.github.ahmedabadawi.asn1java.handwritten.person.PersonCodec;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import org.junit.jupiter.api.Test;
 
 class PersonCodecTest {
 
@@ -20,22 +21,6 @@ class PersonCodecTest {
 
     private String goldenHex(String name) throws IOException {
         return Files.readString(GOLDEN_DIR.resolve(name + ".hex")).strip();
-    }
-
-    private static String toHex(byte[] bytes) {
-        var sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append("%02x".formatted(b));
-        }
-        return sb.toString();
-    }
-
-    private static byte[] fromHex(String hex) {
-        byte[] bytes = new byte[hex.length() / 2];
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) Integer.parseInt(hex, i * 2, i * 2 + 2, 16);
-        }
-        return bytes;
     }
 
     @Test

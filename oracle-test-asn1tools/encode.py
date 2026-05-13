@@ -10,12 +10,11 @@ Outputs written to /work/golden-tests/<spec-name>/:
   <basename>.txt    human-readable summary
   <basename>.err    error details (only on failure)
 """
+import asn1tools
 import json
 import os
 import shutil
 import sys
-
-import asn1tools
 
 
 def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int:

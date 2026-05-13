@@ -16,65 +16,66 @@ import javax.lang.model.element.Modifier;
 
 final class ModelGenerator {
 
-    private ModelGenerator() {}
+  private ModelGenerator() {
+  }
 
-    private static final ClassName STRING = ClassName.get("java.lang", "String");
+  private static final ClassName STRING = ClassName.get("java.lang", "String");
 
-    static JavaFile generate(String pkg, TypeAssignmentNode ta) {
-        TypeSpec record = switch (ta.type()) {
-            case SequenceTypeNode seq -> buildSequenceRecord(ta.name(), seq);
-            case IntegerTypeNode ignored -> buildIntegerWrapperRecord(ta.name());
-            case BooleanTypeNode ignored -> buildBooleanWrapperRecord(ta.name());
-            case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(ta.name());
-        };
-        return JavaFile.builder(pkg, record).build();
+  static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
+    TypeSpec record = switch (typeAssignment.type()) {
+      case SequenceTypeNode seq -> buildSequenceRecord(typeAssignment.name(), seq);
+      case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
+      case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
+      case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
+    };
+    return JavaFile.builder(targetPackage, record).build();
+  }
+
+  private static TypeSpec buildSequenceRecord(String name, SequenceTypeNode seq) {
+    MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
+    for (FieldNode field : seq.fields()) {
+      TypeName javaType = switch (field.type()) {
+        case IntegerTypeNode ignored -> TypeName.INT;
+        case BooleanTypeNode ignored -> TypeName.BOOLEAN;
+        case Utf8StringTypeNode ignored -> STRING;
+        case SequenceTypeNode ignored ->
+            throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
+      };
+      ctorBuilder.addParameter(javaType, field.name());
     }
+    return TypeSpec.recordBuilder(name)
+        .addModifiers(Modifier.PUBLIC)
+        .recordConstructor(ctorBuilder.build())
+        .build();
+  }
 
-    private static TypeSpec buildSequenceRecord(String name, SequenceTypeNode seq) {
-        MethodSpec.Builder ctor = MethodSpec.constructorBuilder();
-        for (FieldNode field : seq.fields()) {
-            TypeName javaType = switch (field.type()) {
-                case IntegerTypeNode ignored    -> TypeName.INT;
-                case BooleanTypeNode ignored    -> TypeName.BOOLEAN;
-                case Utf8StringTypeNode ignored -> STRING;
-                case SequenceTypeNode ignored   -> throw new IllegalArgumentException(
-                        "nested SEQUENCE not supported in record generator");
-            };
-            ctor.addParameter(javaType, field.name());
-        }
-        return TypeSpec.recordBuilder(name)
-                .addModifiers(Modifier.PUBLIC)
-                .recordConstructor(ctor.build())
-                .build();
-    }
+  private static TypeSpec buildIntegerWrapperRecord(String name) {
+    MethodSpec ctor = MethodSpec.constructorBuilder()
+        .addParameter(TypeName.INT, "value")
+        .build();
+    return TypeSpec.recordBuilder(name)
+        .addModifiers(Modifier.PUBLIC)
+        .recordConstructor(ctor)
+        .build();
+  }
 
-    private static TypeSpec buildIntegerWrapperRecord(String name) {
-        MethodSpec ctor = MethodSpec.constructorBuilder()
-                .addParameter(TypeName.INT, "value")
-                .build();
-        return TypeSpec.recordBuilder(name)
-                .addModifiers(Modifier.PUBLIC)
-                .recordConstructor(ctor)
-                .build();
-    }
+  private static TypeSpec buildBooleanWrapperRecord(String name) {
+    MethodSpec ctor = MethodSpec.constructorBuilder()
+        .addParameter(TypeName.BOOLEAN, "value")
+        .build();
+    return TypeSpec.recordBuilder(name)
+        .addModifiers(Modifier.PUBLIC)
+        .recordConstructor(ctor)
+        .build();
+  }
 
-    private static TypeSpec buildBooleanWrapperRecord(String name) {
-        MethodSpec ctor = MethodSpec.constructorBuilder()
-                .addParameter(TypeName.BOOLEAN, "value")
-                .build();
-        return TypeSpec.recordBuilder(name)
-                .addModifiers(Modifier.PUBLIC)
-                .recordConstructor(ctor)
-                .build();
-    }
-
-    private static TypeSpec buildUtf8StringWrapperRecord(String name) {
-        MethodSpec ctor = MethodSpec.constructorBuilder()
-                .addParameter(STRING, "value")
-                .build();
-        return TypeSpec.recordBuilder(name)
-                .addModifiers(Modifier.PUBLIC)
-                .recordConstructor(ctor)
-                .build();
-    }
+  private static TypeSpec buildUtf8StringWrapperRecord(String name) {
+    MethodSpec ctor = MethodSpec.constructorBuilder()
+        .addParameter(STRING, "value")
+        .build();
+    return TypeSpec.recordBuilder(name)
+        .addModifiers(Modifier.PUBLIC)
+        .recordConstructor(ctor)
+        .build();
+  }
 }
