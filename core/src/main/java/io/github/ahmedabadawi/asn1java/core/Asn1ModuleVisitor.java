@@ -43,9 +43,9 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     @Override
     public FieldNode visitField(ASN1Parser.FieldContext ctx) {
         String name = ctx.LOWER_IDENT().getText();
-        ParserRuleContext typeCtx = ctx.integerType() != null
-                ? ctx.integerType()
-                : ctx.booleanType();
+        ParserRuleContext typeCtx = ctx.integerType() != null ? ctx.integerType()
+                : ctx.booleanType() != null ? ctx.booleanType()
+                : ctx.utf8StringType();
         TypeNode type = switch (visit(typeCtx)) {
             case TypeNode t -> t;
             default -> throw new IllegalStateException("unexpected node for field type: " + typeCtx.getText());
@@ -56,6 +56,11 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     @Override
     public BooleanTypeNode visitBooleanType(ASN1Parser.BooleanTypeContext ctx) {
         return new BooleanTypeNode();
+    }
+
+    @Override
+    public Utf8StringTypeNode visitUtf8StringType(ASN1Parser.Utf8StringTypeContext ctx) {
+        return new Utf8StringTypeNode();
     }
 
     @Override
