@@ -123,7 +123,7 @@ class MyTypeCodecTest {
         return Files.readString(GOLDEN_DIR.resolve(name + ".hex")).strip();
     }
 
-    // toHex / fromHex live in TestHelpers — import statically, do not redeclare
+    // hex conversion: private static final HexFormat HEX = HexFormat.of();
 
     @Test void encodeValid1() throws IOException { ... }
     @Test void encodeValid2() throws IOException { ... }
