@@ -1,0 +1,6 @@
+spec:    spec/score.asn
+type:    Score
+input:   examples/score/valid-2.json
+hex:     47d140
+bytes:   3
+bits:    24 (byte-padded)
