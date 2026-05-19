@@ -1,0 +1,9 @@
+ScoreInfo DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Score ::= SEQUENCE {
+        level    INTEGER (1..10),
+        points   INTEGER (0..999),
+        offset   INTEGER (-10..10)
+    }
+
+END
