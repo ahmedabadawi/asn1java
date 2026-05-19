@@ -140,6 +140,21 @@ separate "byte-count-of-the-count" prefix.
 
 ---
 
+## Score SEQUENCE — negative and positive lower bounds with MIN/MAX boundary examples
+
+`level INTEGER (1..10)`: range=9, bit\_count=4, lb=1. Encode: `level−1` in 4 bits.  
+`points INTEGER (0..999)`: range=999, bit\_count=10, lb=0. Encode: `points` in 10 bits.  
+`offset INTEGER (−10..10)`: range=20, bit\_count=5, lb=−10. Encode: `offset+10` in 5 bits.  
+Fields packed left-to-right; 19-bit stream zero-padded to 24 bits (3 bytes).
+
+| input                                   | level  | points       | offset  | hex      |
+|-----------------------------------------|--------|--------------|---------|----------|
+| level=1,  points=0,   offset=−10 (MIN)  | `0000` | `0000000000` | `00000` | `000000` |
+| level=5,  points=500, offset=0   (mid)  | `0100` | `0111110100` | `01010` | `47d140` |
+| level=10, points=999, offset=10  (MAX)  | `1001` | `1111100111` | `10100` | `9f9e80` |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
