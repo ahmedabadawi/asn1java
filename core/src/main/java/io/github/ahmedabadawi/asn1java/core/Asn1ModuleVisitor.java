@@ -86,7 +86,10 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
   @Override
   public ConstraintNode visitConstraint(ASN1Parser.ConstraintContext context) {
-    int lower = Integer.parseInt(context.lowerBound().NUMBER().getText());
+    var lowerBoundContext = context.lowerBound();
+    int lowerSign = lowerBoundContext.MINUS() != null ? -1 : 1;
+    int lowerMagnitude = Integer.parseInt(lowerBoundContext.NUMBER().getText());
+    int lower = lowerSign * lowerMagnitude;
     Bound upper = switch (visit(context.upperBound())) {
       case Bound b -> b;
       default -> throw new IllegalStateException(

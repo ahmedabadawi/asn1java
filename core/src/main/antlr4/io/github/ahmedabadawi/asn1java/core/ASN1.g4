@@ -47,7 +47,7 @@ constraint
     ;
 
 lowerBound
-    : NUMBER
+    : MINUS? NUMBER
     ;
 
 upperBound
@@ -77,6 +77,7 @@ RBRACE      : '}';
 LPAREN      : '(';
 RPAREN      : ')';
 COMMA       : ',';
+MINUS       : '-';
 
 // Identifiers
 UPPER_IDENT : [A-Z] [a-zA-Z0-9-]*;      // ModuleNames, TypeNames
