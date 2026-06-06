@@ -1,0 +1,6 @@
+spec:    spec/status.asn
+type:    Status
+input:   examples/status/valid-3.json
+hex:     80
+bytes:   1
+bits:    8 (byte-padded)
