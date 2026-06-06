@@ -2,6 +2,7 @@ package io.github.ahmedabadawi.asn1java.core.validation;
 
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
@@ -32,6 +33,7 @@ public class Asn1SemanticValidator {
         }
         case Utf8StringTypeNode ignored -> {
         }
+        case EnumeratedTypeNode enumType -> checkEnumerated(type.name(), enumType, errors);
       }
     }
 
@@ -64,6 +66,24 @@ public class Asn1SemanticValidator {
         }
         case Utf8StringTypeNode ignored -> {
         }
+        case EnumeratedTypeNode enumType ->
+            checkEnumerated(typeName + "." + field.name(), enumType, errors);
+      }
+    }
+  }
+
+  private void checkEnumerated(String location, EnumeratedTypeNode enumType,
+      List<ValidationError> errors) {
+    if (enumType.values().isEmpty()) {
+      errors.add(new ValidationError(
+          "ENUMERATED type at %s must have at least one value".formatted(location)));
+      return;
+    }
+    Set<String> seen = new HashSet<>();
+    for (String value : enumType.values()) {
+      if (!seen.add(value)) {
+        errors.add(new ValidationError(
+            "Duplicate enumeration value '%s' in %s".formatted(value, location)));
       }
     }
   }

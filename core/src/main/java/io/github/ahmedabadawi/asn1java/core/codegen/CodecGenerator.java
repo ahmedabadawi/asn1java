@@ -9,6 +9,7 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
@@ -117,6 +118,8 @@ final class CodecGenerator {
       case BOOLEAN -> builder.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", field.name());
       case UTF8_STRING -> builder.addStatement("$T.encodeUtf8String(out, model.$N())",
               UPER_CODEC_SUPPORT, field.name());
+      case ENUMERATED -> builder.addStatement("out.writeBits(model.$N(), $L)",
+              field.name(), field.bitCount());
     }
   }
 
@@ -144,6 +147,8 @@ final class CodecGenerator {
       case UTF8_STRING ->
           builder.addStatement("$T $N = $T.decodeUtf8String(in)", ClassName.get("java.lang", "String"),
               field.name(), UPER_CODEC_SUPPORT);
+      case ENUMERATED -> builder.addStatement("int $N = (int) in.readBits($L)",
+              field.name(), field.bitCount());
     }
   }
 
@@ -157,13 +162,22 @@ final class CodecGenerator {
             case Utf8StringTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.UTF8_STRING, 0);
             case SequenceTypeNode ignored ->
                 throw new IllegalArgumentException("nested SEQUENCE not supported");
+            case EnumeratedTypeNode enumType ->
+                new EncodedField(field.name(), 0, Encoding.ENUMERATED, enumBitCount(enumType));
           })
           .collect(Collectors.toList());
       case IntegerTypeNode intType -> List.of(toEncodedField("value", intType));
       case BooleanTypeNode ignored -> List.of(new EncodedField("value", 0, Encoding.BOOLEAN, 1));
       case Utf8StringTypeNode ignored ->
           List.of(new EncodedField("value", 0, Encoding.UTF8_STRING, 0));
+      case EnumeratedTypeNode enumType ->
+          List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
     };
+  }
+
+  private static int enumBitCount(EnumeratedTypeNode enumType) {
+    int count = enumType.values().size();
+    return count <= 1 ? 0 : Integer.SIZE - Integer.numberOfLeadingZeros(count - 1);
   }
 
   private static EncodedField toEncodedField(String name, IntegerTypeNode intType) {
@@ -185,7 +199,7 @@ final class CodecGenerator {
     };
   }
 
-  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING}
+  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED}
 
 
   private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {

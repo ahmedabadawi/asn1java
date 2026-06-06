@@ -6,6 +6,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
@@ -27,6 +28,7 @@ final class ModelGenerator {
       case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
       case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
       case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
+      case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
     };
     return JavaFile.builder(targetPackage, record).build();
   }
@@ -40,6 +42,7 @@ final class ModelGenerator {
         case Utf8StringTypeNode ignored -> STRING;
         case SequenceTypeNode ignored ->
             throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
+        case EnumeratedTypeNode ignored -> TypeName.INT;
       };
       ctorBuilder.addParameter(javaType, field.name());
     }

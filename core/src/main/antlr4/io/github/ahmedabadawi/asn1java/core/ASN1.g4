@@ -15,7 +15,7 @@ memberList
     ;
 
 typeAssignment
-    : UPPER_IDENT ASSIGNMENT sequenceType
+    : UPPER_IDENT ASSIGNMENT (sequenceType | enumeratedType)
     ;
 
 sequenceType
@@ -27,11 +27,23 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT (integerType | booleanType | utf8StringType)
+    : LOWER_IDENT (integerType | booleanType | utf8StringType | enumeratedType)
     ;
 
 booleanType
     : BOOLEAN
+    ;
+
+enumeratedType
+    : ENUMERATED LBRACE enumValueList RBRACE
+    ;
+
+enumValueList
+    : enumValue (COMMA enumValue)*
+    ;
+
+enumValue
+    : LOWER_IDENT
     ;
 
 utf8StringType
@@ -66,6 +78,7 @@ END         : 'END';
 SEQUENCE    : 'SEQUENCE';
 INTEGER     : 'INTEGER';
 BOOLEAN     : 'BOOLEAN';
+ENUMERATED  : 'ENUMERATED';
 UTF8STRING  : 'UTF8String';
 MAX         : 'MAX';
 
