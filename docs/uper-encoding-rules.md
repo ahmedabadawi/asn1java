@@ -155,6 +155,28 @@ Fields packed left-to-right; 19-bit stream zero-padded to 24 bits (3 bytes).
 
 ---
 
+## ENUMERATED — root enumeration (§13)
+
+A root enumeration with N values is encoded as the zero-based ordinal index of the
+selected value, treated as a constrained whole number in the range 0..(N-1). This is
+identical to `INTEGER (0..N-1)` constrained encoding.
+
+**Steps:**
+1. `ordinal` = zero-based position of the selected value in declaration order
+2. `range = N − 1`
+3. `bit_count = 32 − Integer.numberOfLeadingZeros(range)` (0 if N ≤ 1)
+4. Write `ordinal` in exactly `bit_count` bits, MSB first
+
+**Examples** (`Status ::= ENUMERATED { pending, active, inactive }`, N=3, range=2, bit\_count=2):
+
+| value    | ordinal | bits (binary) | hex  |
+|----------|---------|---------------|------|
+| pending  | 0       | `00`          | `00` |
+| active   | 1       | `01`          | `40` |
+| inactive | 2       | `10`          | `80` |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
