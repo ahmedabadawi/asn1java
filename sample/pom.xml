@@ -51,6 +51,7 @@
                         <specFile>${project.basedir}/src/main/asn1/device.asn</specFile>
                         <specFile>${project.basedir}/src/main/asn1/person.asn</specFile>
                     <specFile>${project.basedir}/src/main/asn1/score.asn</specFile>
+                        <specFile>${project.basedir}/src/main/asn1/status.asn</specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>
