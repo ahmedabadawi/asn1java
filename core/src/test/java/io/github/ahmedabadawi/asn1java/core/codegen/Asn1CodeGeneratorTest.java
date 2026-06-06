@@ -3,6 +3,7 @@ package io.github.ahmedabadawi.asn1java.core.codegen;
 import com.palantir.javapoet.JavaFile;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
@@ -176,5 +177,59 @@ class Asn1CodeGeneratorTest {
     String codec = findFile(files, "PersonCodec").toString();
     assertThat(codec).contains("== null");
     assertThat(codec).contains("must not be null");
+  }
+
+  @Test
+  void generate_enumeratedFieldInSequence_producesIntField() {
+    // Status ::= SEQUENCE { state ENUMERATED { pending, active, inactive } }
+    var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
+        new SequenceTypeNode(List.of(
+            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String model = findFile(files, "record Status").toString();
+    assertThat(model).contains("int state");
+  }
+
+  @Test
+  void generate_enumeratedFieldInSequence_emitsWriteBitsWithBitCount() {
+    // 3 values: range=2, bitCount=2
+    var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
+        new SequenceTypeNode(List.of(
+            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String codec = findFile(files, "StatusCodec").toString();
+    assertThat(codec).contains("writeBits(model.state(), 2)");
+    assertThat(codec).contains("readBits(2)");
+  }
+
+  @Test
+  void generate_enumeratedFieldInSequence_emitsLowerBoundValidation() {
+    var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
+        new SequenceTypeNode(List.of(
+            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String codec = findFile(files, "StatusCodec").toString();
+    assertThat(codec).contains("< 0");
+    assertThat(codec).contains("IllegalArgumentException");
+  }
+
+  @Test
+  void generate_topLevelEnumeratedType_producesIntWrapperRecord() {
+    var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("State",
+        new EnumeratedTypeNode(List.of("on", "off")))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String model = findFile(files, "record State").toString();
+    assertThat(model).contains("int value");
+  }
+
+  @Test
+  void generate_enumeratedBitCount_twoValues_produces1bit() {
+    // 2 values: range=1, bitCount=1
+    var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("Switch",
+        new SequenceTypeNode(List.of(
+            new FieldNode("state", new EnumeratedTypeNode(List.of("on", "off"))))))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String codec = findFile(files, "SwitchCodec").toString();
+    assertThat(codec).contains("writeBits(model.state(), 1)");
   }
 }

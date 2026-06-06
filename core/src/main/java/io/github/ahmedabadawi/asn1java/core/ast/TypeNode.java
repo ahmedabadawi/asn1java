@@ -1,5 +1,5 @@
 package io.github.ahmedabadawi.asn1java.core.ast;
 
 public sealed interface TypeNode
-    permits SequenceTypeNode, IntegerTypeNode, BooleanTypeNode, Utf8StringTypeNode {
+    permits SequenceTypeNode, IntegerTypeNode, BooleanTypeNode, Utf8StringTypeNode, EnumeratedTypeNode {
 }

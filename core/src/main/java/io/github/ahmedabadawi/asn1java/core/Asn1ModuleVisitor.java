@@ -3,6 +3,7 @@ package io.github.ahmedabadawi.asn1java.core;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Bound;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
@@ -15,6 +16,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
@@ -33,10 +35,13 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public TypeAssignmentNode visitTypeAssignment(ASN1Parser.TypeAssignmentContext context) {
     String name = context.UPPER_IDENT().getText();
-    TypeNode type = switch (visit(context.sequenceType())) {
+    ParserRuleContext typeContext = context.sequenceType() != null
+        ? context.sequenceType()
+        : context.enumeratedType();
+    TypeNode type = switch (visit(typeContext)) {
       case TypeNode t -> t;
       default -> throw new IllegalStateException(
-          "unexpected node for sequenceType: " + context.sequenceType().getText());
+          "unexpected node for type: " + typeContext.getText());
     };
     return new TypeAssignmentNode(name, type);
   }
@@ -53,9 +58,16 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public FieldNode visitField(ASN1Parser.FieldContext context) {
     String name = context.LOWER_IDENT().getText();
-    ParserRuleContext typeContext = context.integerType() != null ?
-        context.integerType() :
-        context.booleanType() != null ? context.booleanType() : context.utf8StringType();
+    ParserRuleContext typeContext;
+    if (context.integerType() != null) {
+      typeContext = context.integerType();
+    } else if (context.booleanType() != null) {
+      typeContext = context.booleanType();
+    } else if (context.utf8StringType() != null) {
+      typeContext = context.utf8StringType();
+    } else {
+      typeContext = context.enumeratedType();
+    }
     TypeNode type = switch (visit(typeContext)) {
       case TypeNode t -> t;
       default ->
@@ -67,6 +79,14 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public BooleanTypeNode visitBooleanType(ASN1Parser.BooleanTypeContext context) {
     return new BooleanTypeNode();
+  }
+
+  @Override
+  public EnumeratedTypeNode visitEnumeratedType(ASN1Parser.EnumeratedTypeContext context) {
+    List<String> values = context.enumValueList().enumValue().stream()
+        .map(enumValue -> enumValue.LOWER_IDENT().getText())
+        .collect(Collectors.toList());
+    return new EnumeratedTypeNode(values);
   }
 
   @Override
