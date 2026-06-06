@@ -1,0 +1,5 @@
+StatusModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+    Status ::= SEQUENCE {
+        state ENUMERATED { pending, active, inactive }
+    }
+END
