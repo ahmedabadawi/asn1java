@@ -271,6 +271,49 @@ No length determinant is written. Just the `n` payload bytes (8 bits each).
 
 ---
 
+## BIT STRING — unconstrained and SIZE-constrained (§15)
+
+A BIT STRING encodes a sequence of individual bits. UPER encodes the length (in bits) as
+a determinant, then the bits themselves.
+
+Three cases, depending on whether a SIZE constraint is present:
+
+### `BIT STRING (SIZE (n..n))` — fixed-size
+
+No length determinant. Write exactly `n` bits from the payload. Padding of the last byte
+with zeros is handled by the caller (the SEQUENCE stream). The payload bytes must contain
+at least `ceil(n / 8)` bytes; bits beyond `n` are ignored.
+
+**Steps:**
+1. Write exactly `n` bits from the payload, MSB first.
+
+**Example** (`BIT STRING (SIZE (8..8))`, 8 bits fixed):
+
+| payload (binary)  | payload (hex) | encoding hex |
+|-------------------|---------------|--------------|
+| `10110010`        | `b2`          | `b2`         |
+| `00000000`        | `00`          | `00`         |
+| `11111111`        | `ff`          | `ff`         |
+
+### `BIT STRING (SIZE (lb..ub))` — range-constrained length
+
+Length (in bits) is encoded as a constrained whole number in the range `0..(ub-lb)`, using
+`ceil(log2(ub-lb+1))` bits. Then the `length` bits of the payload follow.
+
+**Steps:**
+1. `offset = bit_count − lb`
+2. `range = ub − lb`
+3. `bit_count_field = 32 − Integer.numberOfLeadingZeros(range)` bits
+4. Write `offset` in `bit_count_field` bits.
+5. Write `bit_count` bits of payload.
+
+### Unconstrained `BIT STRING`
+
+Length in bits is encoded with the semi-constrained integer format (1-byte count prefix),
+then the bits. Not yet supported in this implementation.
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
