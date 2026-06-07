@@ -1,0 +1,6 @@
+spec:    spec/identifier.asn
+type:    Identifier
+input:   examples/identifier/valid-2.json
+hex:     562cda9df7f2d990
+bytes:   8
+bits:    64 (byte-padded)
