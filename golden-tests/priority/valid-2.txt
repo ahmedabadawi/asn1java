@@ -1,0 +1,6 @@
+spec:    spec/priority.asn
+type:    Priority
+input:   examples/priority/valid-2.json
+hex:     806700
+bytes:   3
+bits:    24 (byte-padded)
