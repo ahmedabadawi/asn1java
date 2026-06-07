@@ -7,6 +7,8 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.VisibleStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
@@ -76,6 +78,10 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.bitStringType();
     } else if (context.nullType() != null) {
       typeContext = context.nullType();
+    } else if (context.ia5StringType() != null) {
+      typeContext = context.ia5StringType();
+    } else if (context.visibleStringType() != null) {
+      typeContext = context.visibleStringType();
     } else {
       typeContext = context.enumeratedType();
     }
@@ -119,6 +125,22 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public NullTypeNode visitNullType(ASN1Parser.NullTypeContext context) {
     return new NullTypeNode();
+  }
+
+  @Override
+  public Ia5StringTypeNode visitIa5StringType(ASN1Parser.Ia5StringTypeContext context) {
+    Optional<ConstraintNode> sizeConstraint = context.sizeConstraint() != null
+        ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
+        : Optional.empty();
+    return new Ia5StringTypeNode(sizeConstraint);
+  }
+
+  @Override
+  public VisibleStringTypeNode visitVisibleStringType(ASN1Parser.VisibleStringTypeContext context) {
+    Optional<ConstraintNode> sizeConstraint = context.sizeConstraint() != null
+        ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
+        : Optional.empty();
+    return new VisibleStringTypeNode(sizeConstraint);
   }
 
   @Override

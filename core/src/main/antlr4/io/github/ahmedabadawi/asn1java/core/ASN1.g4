@@ -27,7 +27,7 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | enumeratedType)
+    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType)
     ;
 
 booleanType
@@ -60,6 +60,14 @@ bitStringType
 
 nullType
     : NULL_TYPE
+    ;
+
+ia5StringType
+    : IA5STRING sizeConstraint?
+    ;
+
+visibleStringType
+    : VISIBLESTRING sizeConstraint?
     ;
 
 sizeConstraint
@@ -110,8 +118,10 @@ MIN         : 'MIN';
 SIZE        : 'SIZE';
 OCTET       : 'OCTET';
 BIT         : 'BIT';
-NULL_TYPE   : 'NULL';
-STRING      : 'STRING';
+NULL_TYPE     : 'NULL';
+IA5STRING     : 'IA5String';
+VISIBLESTRING : 'VisibleString';
+STRING        : 'STRING';
 
 // Punctuation
 ASSIGNMENT  : '::=';

@@ -57,6 +57,7 @@
                         <specFile>${project.basedir}/src/main/asn1/flags.asn</specFile>
                         <specFile>${project.basedir}/src/main/asn1/marker.asn</specFile>
                         <specFile>${project.basedir}/src/main/asn1/label.asn</specFile>
+                        <specFile>${project.basedir}/src/main/asn1/identifier.asn</specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>
