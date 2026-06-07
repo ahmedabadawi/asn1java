@@ -314,6 +314,21 @@ then the bits. Not yet supported in this implementation.
 
 ---
 
+## NULL — zero-bit type (§18.1)
+
+A NULL value carries no information. In UPER, zero bits are written for a NULL field.
+The SEQUENCE is encoded as if the NULL field is not there — adjacent fields are packed
+directly against each other with no gap.
+
+**Steps:**
+1. Write nothing.
+
+**Example** (`Marker ::= SEQUENCE { tag NULL }`):
+
+Any Marker instance encodes to an empty byte array (`""`).
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
