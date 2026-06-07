@@ -84,6 +84,30 @@ public final class UperCodecSupport {
     return result;
   }
 
+  // X.691 §15: BIT STRING — write/read exactly bitCount bits from/into a byte array
+  public static void encodeBitString(UperOutputStream out, byte[] value, int bitCount) {
+    for (int i = 0; i < bitCount; i++) {
+      int byteIndex = i / 8;
+      int bitIndex = 7 - (i % 8);
+      int bit = (value[byteIndex] >>> bitIndex) & 1;
+      out.writeBits(bit, 1);
+    }
+  }
+
+  public static byte[] decodeBitString(UperInputStream in, int bitCount) {
+    int byteCount = (bitCount + 7) / 8;
+    var result = new byte[byteCount];
+    for (int i = 0; i < bitCount; i++) {
+      int byteIndex = i / 8;
+      int bitIndex = 7 - (i % 8);
+      int bit = (int) in.readBits(1);
+      if (bit == 1) {
+        result[byteIndex] |= (byte) (1 << bitIndex);
+      }
+    }
+    return result;
+  }
+
   // X.691 §26 + §10.7: unconstrained UTF8String
   // Length determinant: 1 byte if < 128 octets, 2 bytes (0x80 | hi, lo) otherwise; then UTF-8 bytes
   public static void encodeUtf8String(UperOutputStream out, String value) {
