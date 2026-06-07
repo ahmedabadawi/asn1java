@@ -1,0 +1,6 @@
+spec:    spec/marker.asn
+type:    Marker
+input:   examples/marker/valid-1.json
+hex:     
+bytes:   0
+bits:    0 (byte-padded)
