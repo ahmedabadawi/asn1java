@@ -54,6 +54,7 @@
                         <specFile>${project.basedir}/src/main/asn1/status.asn</specFile>
                         <specFile>${project.basedir}/src/main/asn1/priority.asn</specFile>
                         <specFile>${project.basedir}/src/main/asn1/packet.asn</specFile>
+                        <specFile>${project.basedir}/src/main/asn1/flags.asn</specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>

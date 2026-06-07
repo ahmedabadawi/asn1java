@@ -27,7 +27,7 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | enumeratedType)
+    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | bitStringType | enumeratedType)
     ;
 
 booleanType
@@ -52,6 +52,10 @@ utf8StringType
 
 octetStringType
     : OCTET STRING sizeConstraint?
+    ;
+
+bitStringType
+    : BIT STRING sizeConstraint?
     ;
 
 sizeConstraint
@@ -101,6 +105,7 @@ MAX         : 'MAX';
 MIN         : 'MIN';
 SIZE        : 'SIZE';
 OCTET       : 'OCTET';
+BIT         : 'BIT';
 STRING      : 'STRING';
 
 // Punctuation
