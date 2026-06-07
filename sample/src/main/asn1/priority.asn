@@ -1,0 +1,8 @@
+PriorityModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Priority ::= SEQUENCE {
+        level      INTEGER { low(0), normal(1), high(2) } (0..2),
+        adjustment INTEGER (MIN..0)
+    }
+
+END
