@@ -87,6 +87,8 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 - [x] `BIT STRING (SIZE (n..n))` — fixed-size bit sequence (§15)
 - [x] `NULL` — zero-bit placeholder; omitted from Java model (§18.1)
 - [x] `UTF8String (SIZE (lb..ub))` — byte-length bounds validation; same wire encoding as unconstrained
+- [x] `IA5String (SIZE (lb..ub))` — 7-bit ASCII per character, constrained length field (§27)
+- [x] `VisibleString (SIZE (lb..ub))` — same encoding as IA5String (7-bit raw ASCII); identical wire format
 - [x] Single `SEQUENCE` with INTEGER, BOOLEAN, UTF8String, OCTET STRING, and ENUMERATED fields
 
 ## Known Issues
