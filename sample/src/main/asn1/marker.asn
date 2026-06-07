@@ -1,0 +1,7 @@
+MarkerModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Marker ::= SEQUENCE {
+        tag NULL
+    }
+
+END

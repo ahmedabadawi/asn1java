@@ -7,6 +7,7 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
@@ -35,6 +36,7 @@ final class ModelGenerator {
       case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
       case OctetStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
       case BitStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
+      case NullTypeNode ignored -> buildEmptyRecord(typeAssignment.name());
       case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
     };
     return JavaFile.builder(targetPackage, record).build();
@@ -43,6 +45,9 @@ final class ModelGenerator {
   private static TypeSpec buildSequenceRecord(String name, SequenceTypeNode seq) {
     MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
     for (FieldNode field : seq.fields()) {
+      if (field.type() instanceof NullTypeNode) {
+        continue;
+      }
       TypeName javaType = switch (field.type()) {
         case IntegerTypeNode intType ->
             intType.constraint() != null && intType.constraint().lowerBound() instanceof MinBound
@@ -51,6 +56,8 @@ final class ModelGenerator {
         case Utf8StringTypeNode ignored -> STRING;
         case OctetStringTypeNode ignored -> BYTE_ARRAY;
         case BitStringTypeNode ignored -> BYTE_ARRAY;
+        case NullTypeNode ignored ->
+            throw new IllegalStateException("null type should have been skipped");
         case SequenceTypeNode ignored ->
             throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
         case EnumeratedTypeNode ignored -> TypeName.INT;
@@ -87,6 +94,14 @@ final class ModelGenerator {
     MethodSpec ctor = MethodSpec.constructorBuilder()
         .addParameter(STRING, "value")
         .build();
+    return TypeSpec.recordBuilder(name)
+        .addModifiers(Modifier.PUBLIC)
+        .recordConstructor(ctor)
+        .build();
+  }
+
+  private static TypeSpec buildEmptyRecord(String name) {
+    MethodSpec ctor = MethodSpec.constructorBuilder().build();
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
         .recordConstructor(ctor)
