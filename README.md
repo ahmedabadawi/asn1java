@@ -84,6 +84,7 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 - [x] `UTF8String` — unconstrained UTF-8 string (§26 length determinant + bytes)
 - [x] `ENUMERATED` — constrained ordinal index (§13); inline in SEQUENCE fields
 - [x] `OCTET STRING (SIZE (lb..ub))` — constrained binary payload (§16)
+- [x] `BIT STRING (SIZE (n..n))` — fixed-size bit sequence (§15)
 - [x] Single `SEQUENCE` with INTEGER, BOOLEAN, UTF8String, OCTET STRING, and ENUMERATED fields
 
 ## Known Issues
