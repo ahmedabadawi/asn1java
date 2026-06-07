@@ -19,6 +19,33 @@ public final class UperCodecSupport {
     return in.readBits(octets * 8);
   }
 
+  // X.691 §12.2.3: unconstrained (or upper-bounded) whole number
+  // Encoded as: 1-byte octet count + value bytes (big-endian, minimum 1 octet, two's complement)
+  public static void encodeUnconstrainedInt(UperOutputStream out, long value) {
+    int octets = unconstrainedOctetCount(value);
+    out.writeBits(octets, 8);
+    out.writeBits(value, octets * 8);
+  }
+
+  public static long decodeUnconstrainedInt(UperInputStream in) {
+    int octets = (int) in.readBits(8);
+    long raw = in.readBits(octets * 8);
+    int signBit = octets * 8 - 1;
+    if (((raw >> signBit) & 1) == 1) {
+      long mask = -1L << (octets * 8);
+      return raw | mask;
+    }
+    return raw;
+  }
+
+  private static int unconstrainedOctetCount(long value) {
+    if (value >= 0) {
+      return Math.max(1, (Long.SIZE - Long.numberOfLeadingZeros(value) + 8) / 8);
+    }
+    long complement = ~value;
+    return Math.max(1, (Long.SIZE - Long.numberOfLeadingZeros(complement) + 8) / 8);
+  }
+
   // X.691 §26 + §10.7: unconstrained UTF8String
   // Length determinant: 1 byte if < 128 octets, 2 bytes (0x80 | hi, lo) otherwise; then UTF-8 bytes
   public static void encodeUtf8String(UperOutputStream out, String value) {
