@@ -357,6 +357,44 @@ For `UTF8String (SIZE (n..n))` (fixed size): no length field, just the bytes.
 
 ---
 
+## IA5String — 7-bit ASCII (§27)
+
+IA5String is a known-multiplier character string type with alphabet {0..127} (128 chars).
+In UPER, each character is encoded as its ASCII value in 7 bits.
+
+For a SIZE-constrained IA5String, the length (in characters) is encoded as a constrained
+whole number using the minimum number of bits; for unconstrained, a semi-constrained integer.
+
+**Steps (SIZE-constrained, range `ub - lb`):**
+1. `offset = length − lb`
+2. `bit_count_field = 32 − Integer.numberOfLeadingZeros(ub − lb)` bits for the length
+3. Write `offset` in `bit_count_field` bits
+4. For each character, write its ASCII value (0..127) in 7 bits, MSB first
+
+**Example** (`IA5String (SIZE (1..32))`, range=31, bit\_count\_field=5):
+
+| value   | length | offset | length bits | char bits          | total bits | hex       |
+|---------|--------|--------|-------------|------------------  |------------|-----------|
+| `"hi"`  | 2      | 1      | `00001`     | `1101000 1101001`  | 5+14=19    | `0d0d200` |
+
+---
+
+## VisibleString — printable ASCII (§27)
+
+VisibleString is a known-multiplier type with alphabet {32..126} (95 printable chars).
+Each character is encoded as `charValue − 32` in 7 bits (since 2^6=64 < 95 ≤ 2^7=128).
+
+**Steps (SIZE-constrained):** identical to IA5String except each character is encoded
+as `charValue − 32` (not the raw ASCII value).
+
+**Example** (`VisibleString (SIZE (1..32))`, range=31, bit\_count\_field=5):
+
+| value   | offset | char 'h' (104) | char 'i' (105)  |
+|---------|--------|----------------|-----------------|
+| `"hi"`  | 1      | `104-32=72` → `1001000` | `105-32=73` → `1001001` |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
