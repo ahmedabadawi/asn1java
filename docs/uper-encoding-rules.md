@@ -222,6 +222,55 @@ Named numbers have no effect on the bit-level encoding.
 
 ---
 
+## OCTET STRING — unconstrained and SIZE-constrained (§16)
+
+An OCTET STRING encodes a sequence of bytes. UPER encodes the length (in octets) as a
+determinant, then the octets themselves.
+
+Three cases, depending on whether a SIZE constraint is present:
+
+### Unconstrained `OCTET STRING`
+
+Length is encoded with the semi-constrained integer format (§12.2.6): 1-byte octet count
+for the length, then the length bytes. Minimum 1-byte count even for empty payload.
+
+**Steps:**
+1. Let `n` = byte count of the payload.
+2. Write `n` as one byte.
+3. Write `n` payload bytes.
+
+| payload (hex)   | n    | encoding     |
+|-----------------|------|--------------|
+| (empty)         | `00` | `00`         |
+| `ff`            | `01` | `01 ff`      |
+| `de ad be ef`   | `04` | `04 de ad be ef` |
+
+### `OCTET STRING (SIZE (lb..ub))` — range-constrained length
+
+Length is encoded as a constrained whole number in the range `0..(ub-lb)`, using
+`ceil(log2(ub-lb+1))` bits (or 0 bits if `lb == ub`). Then the `length` bytes follow.
+
+**Steps:**
+1. `offset = length − lb`
+2. `range = ub − lb`
+3. `bit_count = 32 − Integer.numberOfLeadingZeros(range)` (0 if range == 0)
+4. Write `offset` in `bit_count` bits.
+5. Write `length` payload bytes (8 bits each).
+
+**Example** (`OCTET STRING (SIZE (0..255))`, range=255, bit\_count=8):
+
+| payload (hex)   | length | offset | length bits  | encoding hex          |
+|-----------------|--------|--------|--------------|-----------------------|
+| (empty)         | 0      | 0      | `00000000`   | `00`                  |
+| `ab cd`         | 2      | 2      | `00000010`   | `02 ab cd`            |
+| `ff ff ff`      | 3      | 3      | `00000011`   | `03 ff ff ff`         |
+
+### `OCTET STRING (SIZE (n..n))` — fixed-size
+
+No length determinant is written. Just the `n` payload bytes (8 bits each).
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
