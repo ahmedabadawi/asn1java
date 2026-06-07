@@ -329,6 +329,34 @@ Any Marker instance encodes to an empty byte array (`""`).
 
 ---
 
+## UTF8String (SIZE (lb..ub)) — SIZE-constrained (§26.5)
+
+When a UTF8String carries a SIZE constraint, the byte length of the UTF-8 encoding is
+constrained. The length is encoded as a constrained whole number (offset from lb), then
+the UTF-8 bytes follow.
+
+**Note:** The SIZE constraint applies to the number of UTF-8 bytes, not to the character
+count. For schemas that use ASCII-only content, these are equivalent (1 byte per char).
+
+**Steps:**
+1. Encode the string as UTF-8 bytes; let `n` = byte count.
+2. `offset = n − lb`
+3. `range = ub − lb`
+4. `bit_count = 32 − Integer.numberOfLeadingZeros(range)` bits for the length field
+5. Write `offset` in `bit_count` bits.
+6. Write each of the `n` UTF-8 bytes as 8 bits.
+
+For `UTF8String (SIZE (n..n))` (fixed size): no length field, just the bytes.
+
+**Example** (`UTF8String (SIZE (1..64))`, range=63, bit_count=6):
+
+| value     | n  | offset | bits   | encoding (hex, truncated)   |
+|-----------|----|--------|--------|-----------------------------|
+| `"hi"`    | 2  | 1      | `000001` | `046869` (6 bits + 2 bytes) |
+| `"hello"` | 5  | 4      | `000100` | `106865...` (6 bits + 5 bytes)|
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
