@@ -35,8 +35,8 @@ public class Asn1SemanticValidator {
         case IntegerTypeNode it -> checkConstraint(type.name(), it.constraint(), errors);
         case BooleanTypeNode ignored -> {
         }
-        case Utf8StringTypeNode ignored -> {
-        }
+        case Utf8StringTypeNode utf8Type ->
+            utf8Type.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
         case OctetStringTypeNode octetType ->
             octetType.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
         case BitStringTypeNode bitType ->
@@ -74,8 +74,9 @@ public class Asn1SemanticValidator {
         case SequenceTypeNode st -> checkSequence(typeName + "." + field.name(), st, errors);
         case BooleanTypeNode ignored -> {
         }
-        case Utf8StringTypeNode ignored -> {
-        }
+        case Utf8StringTypeNode utf8Type ->
+            utf8Type.sizeConstraint().ifPresent(
+                c -> checkConstraint(typeName + "." + field.name(), c, errors));
         case OctetStringTypeNode octetType ->
             octetType.sizeConstraint().ifPresent(
                 c -> checkConstraint(typeName + "." + field.name(), c, errors));

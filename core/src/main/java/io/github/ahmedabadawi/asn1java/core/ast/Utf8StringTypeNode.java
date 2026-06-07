@@ -1,4 +1,6 @@
 package io.github.ahmedabadawi.asn1java.core.ast;
 
-public record Utf8StringTypeNode() implements TypeNode {
+import java.util.Optional;
+
+public record Utf8StringTypeNode(Optional<ConstraintNode> sizeConstraint) implements TypeNode {
 }

@@ -63,6 +63,22 @@ final class CodecGenerator {
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must not be null")
             .endControlFlow();
+        if (field.lowerBound() > 0) {
+          methodBuilder.beginControlFlow(
+                  "if (model.$N().getBytes($T.UTF_8).length < $L)",
+                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"), field.lowerBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " length must be >= " + field.lowerBound())
+              .endControlFlow();
+        }
+        if (field.upperBound() != Long.MAX_VALUE) {
+          methodBuilder.beginControlFlow(
+                  "if (model.$N().getBytes($T.UTF_8).length > $L)",
+                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"), (int) field.upperBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " length must be <= " + (int) field.upperBound())
+              .endControlFlow();
+        }
       } else if (field.encoding() == Encoding.BIT_STRING) {
         methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
@@ -228,7 +244,7 @@ final class CodecGenerator {
           .map(field -> switch (field.type()) {
             case IntegerTypeNode intType -> toEncodedField(field.name(), intType);
             case BooleanTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.BOOLEAN, 1);
-            case Utf8StringTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.UTF8_STRING, 0);
+            case Utf8StringTypeNode utf8Type -> toEncodedField(field.name(), utf8Type);
             case OctetStringTypeNode octetType -> toEncodedField(field.name(), octetType);
             case BitStringTypeNode bitType -> toEncodedField(field.name(), bitType);
             case NullTypeNode ignored ->
@@ -241,14 +257,23 @@ final class CodecGenerator {
           .collect(Collectors.toList());
       case IntegerTypeNode intType -> List.of(toEncodedField("value", intType));
       case BooleanTypeNode ignored -> List.of(new EncodedField("value", 0, Encoding.BOOLEAN, 1));
-      case Utf8StringTypeNode ignored ->
-          List.of(new EncodedField("value", 0, Encoding.UTF8_STRING, 0));
+      case Utf8StringTypeNode utf8Type -> List.of(toEncodedField("value", utf8Type));
       case OctetStringTypeNode octetType -> List.of(toEncodedField("value", octetType));
       case BitStringTypeNode bitType -> List.of(toEncodedField("value", bitType));
       case NullTypeNode ignored -> List.of();
       case EnumeratedTypeNode enumType ->
           List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
     };
+  }
+
+  private static EncodedField toEncodedField(String name, Utf8StringTypeNode utf8Type) {
+    if (utf8Type.sizeConstraint().isEmpty()) {
+      return new EncodedField(name, 0, Encoding.UTF8_STRING, 0);
+    }
+    ConstraintNode size = utf8Type.sizeConstraint().get();
+    int lb = ((NumberBound) size.lowerBound()).value();
+    int ub = ((NumberBound) size.upperBound()).value();
+    return new EncodedField(name, lb, Encoding.UTF8_STRING, 0, ub);
   }
 
   private static EncodedField toEncodedField(String name, BitStringTypeNode bitType) {
