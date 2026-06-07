@@ -18,10 +18,20 @@ import sys
 
 
 def _preprocess(data):
-    """Recursively convert hex strings to bytes, for OCTET STRING fields."""
+    """Recursively convert JSON values to asn1tools-compatible Python types.
+
+    - Hex strings → bytes (for OCTET STRING fields)
+    - [hex_string, bit_count] arrays → (bytes, int) tuples (for BIT STRING fields)
+    - Other types are passed through unchanged.
+    """
     if isinstance(data, dict):
         return {k: _preprocess(v) for k, v in data.items()}
     if isinstance(data, list):
+        if len(data) == 2 and isinstance(data[1], int):
+            try:
+                return (bytes.fromhex(data[0]), data[1])
+            except (ValueError, TypeError):
+                pass
         return [_preprocess(item) for item in data]
     if isinstance(data, str):
         try:

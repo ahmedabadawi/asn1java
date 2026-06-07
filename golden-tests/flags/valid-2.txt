@@ -1,0 +1,6 @@
+spec:    spec/flags.asn
+type:    Flags
+input:   examples/flags/valid-2.json
+hex:     ff
+bytes:   1
+bits:    8 (byte-padded)
