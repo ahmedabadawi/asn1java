@@ -7,6 +7,8 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.VisibleStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
@@ -37,6 +39,8 @@ final class ModelGenerator {
       case OctetStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
       case BitStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
       case NullTypeNode ignored -> buildEmptyRecord(typeAssignment.name());
+      case Ia5StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
+      case VisibleStringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
       case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
     };
     return JavaFile.builder(targetPackage, record).build();
@@ -58,6 +62,8 @@ final class ModelGenerator {
         case BitStringTypeNode ignored -> BYTE_ARRAY;
         case NullTypeNode ignored ->
             throw new IllegalStateException("null type should have been skipped");
+        case Ia5StringTypeNode ignored -> STRING;
+        case VisibleStringTypeNode ignored -> STRING;
         case SequenceTypeNode ignored ->
             throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
         case EnumeratedTypeNode ignored -> TypeName.INT;

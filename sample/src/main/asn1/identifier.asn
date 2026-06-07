@@ -1,0 +1,8 @@
+IdentifierModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Identifier ::= SEQUENCE {
+        code  IA5String (SIZE (1..8)),
+        label VisibleString (SIZE (1..8))
+    }
+
+END

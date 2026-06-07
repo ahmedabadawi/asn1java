@@ -12,6 +12,8 @@ import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.VisibleStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
@@ -75,6 +77,25 @@ final class CodecGenerator {
           methodBuilder.beginControlFlow(
                   "if (model.$N().getBytes($T.UTF_8).length > $L)",
                   field.name(), ClassName.get("java.nio.charset", "StandardCharsets"), (int) field.upperBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " length must be <= " + (int) field.upperBound())
+              .endControlFlow();
+        }
+      } else if (field.encoding() == Encoding.IA5_STRING || field.encoding() == Encoding.VISIBLE_STRING) {
+        methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " must not be null")
+            .endControlFlow();
+        if (field.lowerBound() > 0) {
+          methodBuilder.beginControlFlow("if (model.$N().length() < $L)",
+                  field.name(), field.lowerBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " length must be >= " + field.lowerBound())
+              .endControlFlow();
+        }
+        if (field.upperBound() != Long.MAX_VALUE) {
+          methodBuilder.beginControlFlow("if (model.$N().length() > $L)",
+                  field.name(), (int) field.upperBound())
               .addStatement("throw new $T($S)", IllegalArgumentException.class,
                   field.name() + " length must be <= " + (int) field.upperBound())
               .endControlFlow();
@@ -186,6 +207,10 @@ final class CodecGenerator {
       }
       case BIT_STRING -> builder.addStatement("$T.encodeBitString(out, model.$N(), $L)",
           UPER_CODEC_SUPPORT, field.name(), field.lowerBound());
+      case IA5_STRING -> builder.addStatement("$T.encodeIa5String(out, model.$N(), $L, $L)",
+          UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
+      case VISIBLE_STRING -> builder.addStatement("$T.encodeVisibleString(out, model.$N(), $L, $L)",
+          UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
       case BOOLEAN -> builder.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", field.name());
       case UTF8_STRING -> builder.addStatement("$T.encodeUtf8String(out, model.$N())",
               UPER_CODEC_SUPPORT, field.name());
@@ -227,6 +252,12 @@ final class CodecGenerator {
       }
       case BIT_STRING -> builder.addStatement("byte[] $N = $T.decodeBitString(in, $L)",
           field.name(), UPER_CODEC_SUPPORT, field.lowerBound());
+      case IA5_STRING -> builder.addStatement("$T $N = $T.decodeIa5String(in, $L, $L)",
+          ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT,
+          field.lowerBound(), (int) field.upperBound());
+      case VISIBLE_STRING -> builder.addStatement("$T $N = $T.decodeVisibleString(in, $L, $L)",
+          ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT,
+          field.lowerBound(), (int) field.upperBound());
       case BOOLEAN -> builder.addStatement("boolean $N = in.readBits(1) != 0", field.name());
       case UTF8_STRING ->
           builder.addStatement("$T $N = $T.decodeUtf8String(in)", ClassName.get("java.lang", "String"),
@@ -249,6 +280,8 @@ final class CodecGenerator {
             case BitStringTypeNode bitType -> toEncodedField(field.name(), bitType);
             case NullTypeNode ignored ->
                 throw new IllegalStateException("null type should have been filtered");
+            case Ia5StringTypeNode ia5Type -> toEncodedField(field.name(), ia5Type);
+            case VisibleStringTypeNode visibleType -> toEncodedField(field.name(), visibleType);
             case SequenceTypeNode ignored ->
                 throw new IllegalArgumentException("nested SEQUENCE not supported");
             case EnumeratedTypeNode enumType ->
@@ -261,9 +294,31 @@ final class CodecGenerator {
       case OctetStringTypeNode octetType -> List.of(toEncodedField("value", octetType));
       case BitStringTypeNode bitType -> List.of(toEncodedField("value", bitType));
       case NullTypeNode ignored -> List.of();
+      case Ia5StringTypeNode ia5Type -> List.of(toEncodedField("value", ia5Type));
+      case VisibleStringTypeNode visibleType -> List.of(toEncodedField("value", visibleType));
       case EnumeratedTypeNode enumType ->
           List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
     };
+  }
+
+  private static EncodedField toEncodedField(String name, Ia5StringTypeNode ia5Type) {
+    if (ia5Type.sizeConstraint().isEmpty()) {
+      return new EncodedField(name, 0, Encoding.IA5_STRING, 0);
+    }
+    ConstraintNode size = ia5Type.sizeConstraint().get();
+    int lb = ((NumberBound) size.lowerBound()).value();
+    int ub = ((NumberBound) size.upperBound()).value();
+    return new EncodedField(name, lb, Encoding.IA5_STRING, 0, ub);
+  }
+
+  private static EncodedField toEncodedField(String name, VisibleStringTypeNode visibleType) {
+    if (visibleType.sizeConstraint().isEmpty()) {
+      return new EncodedField(name, 0, Encoding.VISIBLE_STRING, 0);
+    }
+    ConstraintNode size = visibleType.sizeConstraint().get();
+    int lb = ((NumberBound) size.lowerBound()).value();
+    int ub = ((NumberBound) size.upperBound()).value();
+    return new EncodedField(name, lb, Encoding.VISIBLE_STRING, 0, ub);
   }
 
   private static EncodedField toEncodedField(String name, Utf8StringTypeNode utf8Type) {
@@ -341,7 +396,7 @@ final class CodecGenerator {
     };
   }
 
-  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED, OCTET_STRING, BIT_STRING}
+  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED, OCTET_STRING, BIT_STRING, IA5_STRING, VISIBLE_STRING}
 
   private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
