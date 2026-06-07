@@ -1,0 +1,7 @@
+LabelModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Label ::= SEQUENCE {
+        text UTF8String (SIZE (1..64))
+    }
+
+END
