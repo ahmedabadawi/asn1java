@@ -17,6 +17,20 @@ import shutil
 import sys
 
 
+def _preprocess(data):
+    """Recursively convert hex strings to bytes, for OCTET STRING fields."""
+    if isinstance(data, dict):
+        return {k: _preprocess(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_preprocess(item) for item in data]
+    if isinstance(data, str):
+        try:
+            return bytes.fromhex(data)
+        except ValueError:
+            return data
+    return data
+
+
 def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int:
     spec_name = os.path.splitext(os.path.basename(spec_file))[0]
     output_dir = f"/work/golden-tests/{spec_name}"
@@ -44,7 +58,7 @@ def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int
         print(f"  ┌─ {input_file}")
 
         with open(f"/work/{input_file}") as f:
-            data = json.load(f)
+            data = _preprocess(json.load(f))
 
         try:
             encoded: bytes = db.encode(root_type, data, check_constraints=True)
