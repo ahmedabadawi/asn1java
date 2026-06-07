@@ -102,7 +102,10 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
   @Override
   public Utf8StringTypeNode visitUtf8StringType(ASN1Parser.Utf8StringTypeContext context) {
-    return new Utf8StringTypeNode();
+    Optional<ConstraintNode> sizeConstraint = context.sizeConstraint() != null
+        ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
+        : Optional.empty();
+    return new Utf8StringTypeNode(sizeConstraint);
   }
 
   @Override

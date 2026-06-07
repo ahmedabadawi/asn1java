@@ -10,6 +10,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
+import java.util.Optional;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
@@ -154,7 +155,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_utf8StringFieldInSequence_producesJavaStringType() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
-        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode()))))));
+        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String model = findFile(files, "record Person").toString();
     assertThat(model).contains("String name");
@@ -163,7 +164,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_utf8StringField_emitsUtf8StringHelperCalls() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
-        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode()))))));
+        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String codec = findFile(files, "PersonCodec").toString();
     assertThat(codec).contains("encodeUtf8String");
@@ -173,7 +174,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_utf8StringField_emitsNullValidation() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
-        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode()))))));
+        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String codec = findFile(files, "PersonCodec").toString();
     assertThat(codec).contains("== null");

@@ -47,7 +47,7 @@ enumValue
     ;
 
 utf8StringType
-    : UTF8STRING
+    : UTF8STRING sizeConstraint?
     ;
 
 octetStringType
