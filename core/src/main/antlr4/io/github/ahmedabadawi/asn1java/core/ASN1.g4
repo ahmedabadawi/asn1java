@@ -27,7 +27,7 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT (integerType | booleanType | utf8StringType | enumeratedType)
+    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | enumeratedType)
     ;
 
 booleanType
@@ -48,6 +48,14 @@ enumValue
 
 utf8StringType
     : UTF8STRING
+    ;
+
+octetStringType
+    : OCTET STRING sizeConstraint?
+    ;
+
+sizeConstraint
+    : LPAREN SIZE LPAREN lowerBound RANGE upperBound RPAREN RPAREN
     ;
 
 integerType
@@ -91,6 +99,9 @@ ENUMERATED  : 'ENUMERATED';
 UTF8STRING  : 'UTF8String';
 MAX         : 'MAX';
 MIN         : 'MIN';
+SIZE        : 'SIZE';
+OCTET       : 'OCTET';
+STRING      : 'STRING';
 
 // Punctuation
 ASSIGNMENT  : '::=';
