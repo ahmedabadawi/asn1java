@@ -8,6 +8,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
+import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
@@ -17,6 +18,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
@@ -66,6 +68,8 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.booleanType();
     } else if (context.utf8StringType() != null) {
       typeContext = context.utf8StringType();
+    } else if (context.octetStringType() != null) {
+      typeContext = context.octetStringType();
     } else {
       typeContext = context.enumeratedType();
     }
@@ -93,6 +97,24 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public Utf8StringTypeNode visitUtf8StringType(ASN1Parser.Utf8StringTypeContext context) {
     return new Utf8StringTypeNode();
+  }
+
+  @Override
+  public OctetStringTypeNode visitOctetStringType(ASN1Parser.OctetStringTypeContext context) {
+    Optional<ConstraintNode> sizeConstraint = context.sizeConstraint() != null
+        ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
+        : Optional.empty();
+    return new OctetStringTypeNode(sizeConstraint);
+  }
+
+  private ConstraintNode parseSizeConstraint(ASN1Parser.SizeConstraintContext context) {
+    Bound lower = parseLowerBound(context.lowerBound());
+    Bound upper = switch (visit(context.upperBound())) {
+      case Bound b -> b;
+      default -> throw new IllegalStateException(
+          "unexpected node for size upper bound: " + context.upperBound().getText());
+    };
+    return new ConstraintNode(lower, upper);
   }
 
   @Override

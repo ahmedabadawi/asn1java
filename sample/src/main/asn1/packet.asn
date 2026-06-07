@@ -1,0 +1,7 @@
+PacketModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Packet ::= SEQUENCE {
+        payload OCTET STRING (SIZE (1..4))
+    }
+
+END

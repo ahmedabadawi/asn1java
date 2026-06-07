@@ -10,6 +10,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
+import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
@@ -22,6 +23,8 @@ final class ModelGenerator {
   }
 
   private static final ClassName STRING = ClassName.get("java.lang", "String");
+  private static final com.palantir.javapoet.ArrayTypeName BYTE_ARRAY =
+      com.palantir.javapoet.ArrayTypeName.of(TypeName.BYTE);
 
   static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
     TypeSpec record = switch (typeAssignment.type()) {
@@ -29,6 +32,7 @@ final class ModelGenerator {
       case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
       case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
       case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
+      case OctetStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
       case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
     };
     return JavaFile.builder(targetPackage, record).build();
@@ -43,6 +47,7 @@ final class ModelGenerator {
                 ? TypeName.LONG : TypeName.INT;
         case BooleanTypeNode ignored -> TypeName.BOOLEAN;
         case Utf8StringTypeNode ignored -> STRING;
+        case OctetStringTypeNode ignored -> BYTE_ARRAY;
         case SequenceTypeNode ignored ->
             throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
         case EnumeratedTypeNode ignored -> TypeName.INT;
@@ -78,6 +83,16 @@ final class ModelGenerator {
   private static TypeSpec buildUtf8StringWrapperRecord(String name) {
     MethodSpec ctor = MethodSpec.constructorBuilder()
         .addParameter(STRING, "value")
+        .build();
+    return TypeSpec.recordBuilder(name)
+        .addModifiers(Modifier.PUBLIC)
+        .recordConstructor(ctor)
+        .build();
+  }
+
+  private static TypeSpec buildByteArrayWrapperRecord(String name) {
+    MethodSpec ctor = MethodSpec.constructorBuilder()
+        .addParameter(BYTE_ARRAY, "value")
         .build();
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)

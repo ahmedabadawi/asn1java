@@ -9,6 +9,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
+import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
@@ -34,6 +35,8 @@ public class Asn1SemanticValidator {
         }
         case Utf8StringTypeNode ignored -> {
         }
+        case OctetStringTypeNode octetType ->
+            octetType.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
         case EnumeratedTypeNode enumType -> checkEnumerated(type.name(), enumType, errors);
       }
     }
@@ -67,6 +70,9 @@ public class Asn1SemanticValidator {
         }
         case Utf8StringTypeNode ignored -> {
         }
+        case OctetStringTypeNode octetType ->
+            octetType.sizeConstraint().ifPresent(
+                c -> checkConstraint(typeName + "." + field.name(), c, errors));
         case EnumeratedTypeNode enumType ->
             checkEnumerated(typeName + "." + field.name(), enumType, errors);
       }
