@@ -1,0 +1,6 @@
+spec:    spec/packet.asn
+type:    Packet
+input:   examples/packet/valid-2.json
+hex:     3fc0
+bytes:   2
+bits:    16 (byte-padded)

@@ -46,6 +46,44 @@ public final class UperCodecSupport {
     return Math.max(1, (Long.SIZE - Long.numberOfLeadingZeros(complement) + 8) / 8);
   }
 
+  // X.691 §16: OCTET STRING, SIZE-constrained (range lb..ub)
+  // Length offset is encoded as a constrained whole number using bitCount bits, then the bytes.
+  public static void encodeOctetString(UperOutputStream out, byte[] value, int lb, int ub) {
+    int range = ub - lb;
+    int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+    out.writeBits(value.length - lb, bitCount);
+    for (byte b : value) {
+      out.writeBits(b & 0xFF, 8);
+    }
+  }
+
+  public static byte[] decodeOctetString(UperInputStream in, int lb, int ub) {
+    int range = ub - lb;
+    int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+    int length = (int) in.readBits(bitCount) + lb;
+    var result = new byte[length];
+    for (int i = 0; i < length; i++) {
+      result[i] = (byte) in.readBits(8);
+    }
+    return result;
+  }
+
+  // X.691 §16: OCTET STRING, fixed SIZE (n..n)
+  // No length determinant; just n bytes.
+  public static void encodeFixedOctetString(UperOutputStream out, byte[] value) {
+    for (byte b : value) {
+      out.writeBits(b & 0xFF, 8);
+    }
+  }
+
+  public static byte[] decodeFixedOctetString(UperInputStream in, int size) {
+    var result = new byte[size];
+    for (int i = 0; i < size; i++) {
+      result[i] = (byte) in.readBits(8);
+    }
+    return result;
+  }
+
   // X.691 §26 + §10.7: unconstrained UTF8String
   // Length determinant: 1 byte if < 128 octets, 2 bytes (0x80 | hi, lo) otherwise; then UTF-8 bytes
   public static void encodeUtf8String(UperOutputStream out, String value) {
