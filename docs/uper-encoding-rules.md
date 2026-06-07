@@ -177,6 +177,51 @@ identical to `INTEGER (0..N-1)` constrained encoding.
 
 ---
 
+## INTEGER (MIN..ub) — Upper-bounded (unconstrained) whole number (§12.2.3)
+
+When the lower bound is `MIN` (no lower bound) and the upper bound is a finite number,
+the value is encoded as a minimum-length two's-complement signed integer, prefixed with
+a 1-byte octet count.
+
+This is the same algorithm as unconstrained INTEGER (§12.2.3 applies to both).
+
+**Steps:**
+1. Determine the minimum number of octets `n` needed to represent `value` in big-endian
+   two's-complement signed form (at least 1, even for zero):
+   - Positive values: `n = ceil((bit_length(value) + 1) / 8)`, where bit_length is
+     the position of the most significant `1` bit (i.e. `Long.SIZE − Long.numberOfLeadingZeros(value)`).
+     Special case: value 0 requires 1 byte.
+   - Negative values: `n = ceil((bit_length(~value) + 1) / 8)`, where `~value` is
+     the bitwise complement. Special case: value −1 requires 1 byte (0xFF).
+2. Write `n` as one byte.
+3. Write `value` big-endian in exactly `n` bytes (two's-complement signed).
+
+The upper bound is validated (value ≤ upper_bound) but does not change the encoding
+algorithm — it only restricts which values are legal.
+
+**Examples** (`INTEGER (MIN..0)`, so all values ≤ 0 are legal):
+
+| value  | two's-complement bytes | n    | encoding    |
+|--------|------------------------|------|-------------|
+| 0      | `00`                   | `01` | `01 00`     |
+| −1     | `ff`                   | `01` | `01 ff`     |
+| −100   | `9c`                   | `01` | `01 9c`     |
+| −128   | `80`                   | `01` | `01 80`     |
+| −129   | `ff 7f`                | `02` | `02 ff 7f`  |
+| −32768 | `80 00`                | `02` | `02 80 00`  |
+
+---
+
+## INTEGER — Named Numbers
+
+Named numbers (e.g. `INTEGER { low(0), normal(1), high(2) } (0..2)`) are purely
+documentation. The encoding is identical to the same integer type without named numbers:
+the constraint `(0..2)` governs — constrained whole number with range = 2, bit_count = 2.
+
+Named numbers have no effect on the bit-level encoding.
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
