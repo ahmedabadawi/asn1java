@@ -84,6 +84,45 @@ public final class UperCodecSupport {
     return result;
   }
 
+  // X.691 §27: IA5String and VisibleString — SIZE-constrained
+  // Constrained length (in characters) encoded in bitCount bits, then 7 bits per character (raw ASCII).
+  // VisibleString uses the same encoding as IA5String (both encode raw ASCII value, not alphabet index).
+  public static void encodeIa5String(UperOutputStream out, String value, int lb, int ub) {
+    encodeCharString7bit(out, value, lb, ub);
+  }
+
+  public static String decodeIa5String(UperInputStream in, int lb, int ub) {
+    return decodeCharString7bit(in, lb, ub);
+  }
+
+  public static void encodeVisibleString(UperOutputStream out, String value, int lb, int ub) {
+    encodeCharString7bit(out, value, lb, ub);
+  }
+
+  public static String decodeVisibleString(UperInputStream in, int lb, int ub) {
+    return decodeCharString7bit(in, lb, ub);
+  }
+
+  private static void encodeCharString7bit(UperOutputStream out, String value, int lb, int ub) {
+    int range = ub - lb;
+    int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+    out.writeBits(value.length() - lb, bitCount);
+    for (char character : value.toCharArray()) {
+      out.writeBits(character, 7);
+    }
+  }
+
+  private static String decodeCharString7bit(UperInputStream in, int lb, int ub) {
+    int range = ub - lb;
+    int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+    int length = (int) in.readBits(bitCount) + lb;
+    var chars = new char[length];
+    for (int i = 0; i < length; i++) {
+      chars[i] = (char) in.readBits(7);
+    }
+    return new String(chars);
+  }
+
   // X.691 §15: BIT STRING — write/read exactly bitCount bits from/into a byte array
   public static void encodeBitString(UperOutputStream out, byte[] value, int bitCount) {
     for (int i = 0; i < bitCount; i++) {
