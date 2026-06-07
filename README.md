@@ -78,6 +78,8 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 ## Current Constructs
 - [x] `INTEGER (0..MAX)` — semi-constrained whole number
 - [x] `INTEGER (lb..ub)` — constrained whole number
+- [x] `INTEGER (MIN..ub)` — unconstrained (upper-bounded) whole number (§12.2.3)
+- [x] Named numbers — `INTEGER { name(val), ... } (lb..ub)` syntax (parsed; encoding unchanged)
 - [x] `BOOLEAN` — single-bit encoding
 - [x] `UTF8String` — unconstrained UTF-8 string (§26 length determinant + bytes)
 - [x] `ENUMERATED` — constrained ordinal index (§13); inline in SEQUENCE fields
