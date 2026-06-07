@@ -51,7 +51,15 @@ utf8StringType
     ;
 
 integerType
-    : INTEGER constraint
+    : INTEGER (LBRACE namedNumberList RBRACE)? constraint
+    ;
+
+namedNumberList
+    : namedNumber (COMMA namedNumber)*
+    ;
+
+namedNumber
+    : LOWER_IDENT LPAREN MINUS? NUMBER RPAREN
     ;
 
 constraint
@@ -60,6 +68,7 @@ constraint
 
 lowerBound
     : MINUS? NUMBER
+    | MIN
     ;
 
 upperBound
@@ -81,6 +90,7 @@ BOOLEAN     : 'BOOLEAN';
 ENUMERATED  : 'ENUMERATED';
 UTF8STRING  : 'UTF8String';
 MAX         : 'MAX';
+MIN         : 'MIN';
 
 // Punctuation
 ASSIGNMENT  : '::=';

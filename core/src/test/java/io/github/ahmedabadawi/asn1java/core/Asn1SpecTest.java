@@ -4,6 +4,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
+import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SyntaxException;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ class Asn1SpecTest {
     assertThat(sequence.fields()).allSatisfy(f -> {
       assertThat(f.type()).isInstanceOf(IntegerTypeNode.class);
       var intType = (IntegerTypeNode) f.type();
-      assertThat(intType.constraint().lowerBound()).isZero();
+      assertThat(intType.constraint().lowerBound()).isEqualTo(new NumberBound(0));
       assertThat(intType.constraint().upperBound()).isInstanceOf(MaxBound.class);
     });
   }

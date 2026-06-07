@@ -12,6 +12,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
@@ -59,6 +60,13 @@ final class CodecGenerator {
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must not be null")
             .endControlFlow();
+      } else if (field.encoding() == Encoding.UNCONSTRAINED) {
+        if (field.upperBound() != Long.MAX_VALUE) {
+          methodBuilder.beginControlFlow("if (model.$N() > $LL)", field.name(), field.upperBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " must be <= " + field.upperBound())
+              .endControlFlow();
+        }
       } else if (field.encoding() != Encoding.BOOLEAN) {
         methodBuilder.beginControlFlow("if (model.$N() < $L)",
                 field.name(), field.lowerBound())
@@ -115,6 +123,8 @@ final class CodecGenerator {
         }
       }
       case ZERO_RANGE -> { /* nothing to encode */ }
+      case UNCONSTRAINED -> builder.addStatement("$T.encodeUnconstrainedInt(out, model.$N())",
+          UPER_CODEC_SUPPORT, field.name());
       case BOOLEAN -> builder.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", field.name());
       case UTF8_STRING -> builder.addStatement("$T.encodeUtf8String(out, model.$N())",
               UPER_CODEC_SUPPORT, field.name());
@@ -143,6 +153,8 @@ final class CodecGenerator {
         }
       }
       case ZERO_RANGE -> builder.addStatement("int $N = $L", field.name(), field.lowerBound());
+      case UNCONSTRAINED -> builder.addStatement("long $N = $T.decodeUnconstrainedInt(in)",
+          field.name(), UPER_CODEC_SUPPORT);
       case BOOLEAN -> builder.addStatement("boolean $N = in.readBits(1) != 0", field.name());
       case UTF8_STRING ->
           builder.addStatement("$T $N = $T.decodeUtf8String(in)", ClassName.get("java.lang", "String"),
@@ -185,23 +197,42 @@ final class CodecGenerator {
     if (constraint == null) {
       return new EncodedField(name, 0, Encoding.SEMI_CONSTRAINED, 0);
     }
-    int lowerBound = constraint.lowerBound();
-    return switch (constraint.upperBound()) {
-      case MaxBound ignored -> new EncodedField(name, lowerBound, Encoding.SEMI_CONSTRAINED, 0);
-      case NumberBound numberBound -> {
-        int range = numberBound.value() - lowerBound;
-        if (range == 0) {
-          yield new EncodedField(name, lowerBound, Encoding.ZERO_RANGE, 0);
-        }
-        int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
-        yield new EncodedField(name, lowerBound, Encoding.CONSTRAINED, bitCount);
+    return switch (constraint.lowerBound()) {
+      case MinBound ignored -> {
+        long upperBound = switch (constraint.upperBound()) {
+          case NumberBound nb -> (long) nb.value();
+          case MaxBound ignored2 -> Long.MAX_VALUE;
+          case MinBound ignored2 -> throw new IllegalArgumentException(
+              "upper bound cannot be MIN for field " + name);
+        };
+        yield new EncodedField(name, 0, Encoding.UNCONSTRAINED, 0, upperBound);
       }
+      case NumberBound lowerBound -> {
+        int lb = lowerBound.value();
+        yield switch (constraint.upperBound()) {
+          case MaxBound ignored -> new EncodedField(name, lb, Encoding.SEMI_CONSTRAINED, 0);
+          case NumberBound numberBound -> {
+            int range = numberBound.value() - lb;
+            if (range == 0) {
+              yield new EncodedField(name, lb, Encoding.ZERO_RANGE, 0);
+            }
+            int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+            yield new EncodedField(name, lb, Encoding.CONSTRAINED, bitCount);
+          }
+          case MinBound ignored -> throw new IllegalArgumentException(
+              "upper bound cannot be MIN for field " + name);
+        };
+      }
+      case MaxBound ignored -> throw new IllegalArgumentException(
+          "lower bound cannot be MAX for field " + name);
     };
   }
 
-  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED}
+  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED}
 
-
-  private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
+  private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
+    EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
+      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE);
+    }
   }
 }

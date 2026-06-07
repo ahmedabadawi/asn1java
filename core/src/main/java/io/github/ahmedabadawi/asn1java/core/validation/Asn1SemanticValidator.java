@@ -6,6 +6,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
@@ -90,15 +91,12 @@ public class Asn1SemanticValidator {
 
   private void checkConstraint(String location, ConstraintNode constraint,
       List<ValidationError> errors) {
-    switch (constraint.upperBound()) {
-      case NumberBound nb when nb.value() < constraint.lowerBound() -> errors.add(
-          new ValidationError(
-              "Inverted constraint bounds at %s: lower=%d > upper=%d"
-                  .formatted(location, constraint.lowerBound() ,nb.value())));
-      case NumberBound nb -> {
-      }
-      case MaxBound mb -> {
-      }
+    if (constraint.lowerBound() instanceof NumberBound lowerBound
+        && constraint.upperBound() instanceof NumberBound upperBound
+        && upperBound.value() < lowerBound.value()) {
+      errors.add(new ValidationError(
+          "Inverted constraint bounds at %s: lower=%d > upper=%d"
+              .formatted(location, lowerBound.value(), upperBound.value())));
     }
   }
 }

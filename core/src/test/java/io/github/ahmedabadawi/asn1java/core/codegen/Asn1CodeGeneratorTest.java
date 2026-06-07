@@ -7,6 +7,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
@@ -23,8 +24,8 @@ class Asn1CodeGeneratorTest {
   private static ModuleNode versionInfoModule() {
     return new ModuleNode("VersionInfo", List.of(new TypeAssignmentNode("Version",
         new SequenceTypeNode(List.of(
-            new FieldNode("major", new IntegerTypeNode(new ConstraintNode(0, new MaxBound()))),
-            new FieldNode("minor", new IntegerTypeNode(new ConstraintNode(0, new MaxBound()))))))));
+            new FieldNode("major", new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new MaxBound()))),
+            new FieldNode("minor", new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new MaxBound()))))))));
   }
 
   private static JavaFile findFile(List<JavaFile> files, String typeName) {
@@ -83,7 +84,7 @@ class Asn1CodeGeneratorTest {
     // INTEGER (0..255): range=255, bitCount = 32 - numberOfLeadingZeros(255) = 8
     var module = new ModuleNode("Flags", List.of(new TypeAssignmentNode("Flags",
         new SequenceTypeNode(List.of(new FieldNode("value",
-            new IntegerTypeNode(new ConstraintNode(0, new NumberBound(255)))))))));
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255)))))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String codec = findFile(files, "FlagsCodec").toString();
     assertThat(codec).contains("writeBits");
@@ -93,7 +94,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_topLevelIntegerType_producesWrapperRecord() {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("MyInt",
-        new IntegerTypeNode(new ConstraintNode(0, new NumberBound(255))))));
+        new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String model = findFile(files, "record MyInt").toString();
     assertThat(model).contains("public record MyInt(");
@@ -103,7 +104,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_topLevelIntegerType_producesCodec() {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("MyInt",
-        new IntegerTypeNode(new ConstraintNode(0, new NumberBound(255))))));
+        new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String codec = findFile(files, "MyIntCodec").toString();
     assertThat(codec).contains("public byte[] encode(");
@@ -143,7 +144,7 @@ class Asn1CodeGeneratorTest {
     // INTEGER (10..20): lb=10, range=10, bitCount=4
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
         List.of(new FieldNode("x",
-            new IntegerTypeNode(new ConstraintNode(10, new NumberBound(20)))))))));
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(10), new NumberBound(20)))))))));
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String codec = findFile(files, "FooCodec").toString();
     assertThat(codec).contains("- 10");
@@ -231,5 +232,30 @@ class Asn1CodeGeneratorTest {
     var files = new Asn1CodeGenerator("io.example").generate(module);
     String codec = findFile(files, "SwitchCodec").toString();
     assertThat(codec).contains("writeBits(model.state(), 1)");
+  }
+
+  @Test
+  void generate_minBoundedField_producesLongTypeAndUnconstrainedEncoding() {
+    // INTEGER (MIN..0): lower=MIN, upper=0 — unconstrained whole number (X.691 §12.2.3)
+    var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Offset", new SequenceTypeNode(
+        List.of(new FieldNode("delta",
+            new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String model = findFile(files, "record Offset").toString();
+    String codec = findFile(files, "OffsetCodec").toString();
+    assertThat(model).contains("long delta");
+    assertThat(codec).contains("encodeUnconstrainedInt");
+    assertThat(codec).contains("decodeUnconstrainedInt");
+  }
+
+  @Test
+  void generate_minBoundedField_emitsUpperBoundValidation() {
+    var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Offset", new SequenceTypeNode(
+        List.of(new FieldNode("delta",
+            new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
+    var files = new Asn1CodeGenerator("io.example").generate(module);
+    String codec = findFile(files, "OffsetCodec").toString();
+    assertThat(codec).contains("> 0");
+    assertThat(codec).contains("must be <= 0");
   }
 }
