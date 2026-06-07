@@ -1,0 +1,7 @@
+FlagsModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Flags ::= SEQUENCE {
+        bits BIT STRING (SIZE (8..8))
+    }
+
+END
