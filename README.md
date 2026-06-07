@@ -86,6 +86,7 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 - [x] `OCTET STRING (SIZE (lb..ub))` — constrained binary payload (§16)
 - [x] `BIT STRING (SIZE (n..n))` — fixed-size bit sequence (§15)
 - [x] `NULL` — zero-bit placeholder; omitted from Java model (§18.1)
+- [x] `UTF8String (SIZE (lb..ub))` — byte-length bounds validation; same wire encoding as unconstrained
 - [x] Single `SEQUENCE` with INTEGER, BOOLEAN, UTF8String, OCTET STRING, and ENUMERATED fields
 
 ## Known Issues
