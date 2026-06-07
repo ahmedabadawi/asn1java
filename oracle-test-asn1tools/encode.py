@@ -33,7 +33,7 @@ def _preprocess(data):
             except (ValueError, TypeError):
                 pass
         return [_preprocess(item) for item in data]
-    if isinstance(data, str):
+    if isinstance(data, str) and len(data) > 0:
         try:
             return bytes.fromhex(data)
         except ValueError:

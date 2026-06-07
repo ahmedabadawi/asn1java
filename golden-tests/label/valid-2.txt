@@ -1,0 +1,6 @@
+spec:    spec/label.asn
+type:    Label
+input:   examples/label/valid-2.json
+hex:     0568656c6c6f
+bytes:   6
+bits:    48 (byte-padded)
