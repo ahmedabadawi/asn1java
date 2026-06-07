@@ -13,6 +13,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
@@ -223,12 +224,15 @@ final class CodecGenerator {
     return switch (typeAssignment.type()) {
       case SequenceTypeNode seq -> seq.fields()
           .stream()
+          .filter(field -> !(field.type() instanceof NullTypeNode))
           .map(field -> switch (field.type()) {
             case IntegerTypeNode intType -> toEncodedField(field.name(), intType);
             case BooleanTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.BOOLEAN, 1);
             case Utf8StringTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.UTF8_STRING, 0);
             case OctetStringTypeNode octetType -> toEncodedField(field.name(), octetType);
             case BitStringTypeNode bitType -> toEncodedField(field.name(), bitType);
+            case NullTypeNode ignored ->
+                throw new IllegalStateException("null type should have been filtered");
             case SequenceTypeNode ignored ->
                 throw new IllegalArgumentException("nested SEQUENCE not supported");
             case EnumeratedTypeNode enumType ->
@@ -241,6 +245,7 @@ final class CodecGenerator {
           List.of(new EncodedField("value", 0, Encoding.UTF8_STRING, 0));
       case OctetStringTypeNode octetType -> List.of(toEncodedField("value", octetType));
       case BitStringTypeNode bitType -> List.of(toEncodedField("value", bitType));
+      case NullTypeNode ignored -> List.of();
       case EnumeratedTypeNode enumType ->
           List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
     };

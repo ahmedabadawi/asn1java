@@ -6,6 +6,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
@@ -40,6 +41,8 @@ public class Asn1SemanticValidator {
             octetType.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
         case BitStringTypeNode bitType ->
             bitType.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
+        case NullTypeNode ignored -> {
+        }
         case EnumeratedTypeNode enumType -> checkEnumerated(type.name(), enumType, errors);
       }
     }
@@ -79,6 +82,8 @@ public class Asn1SemanticValidator {
         case BitStringTypeNode bitType ->
             bitType.sizeConstraint().ifPresent(
                 c -> checkConstraint(typeName + "." + field.name(), c, errors));
+        case NullTypeNode ignored -> {
+        }
         case EnumeratedTypeNode enumType ->
             checkEnumerated(typeName + "." + field.name(), enumType, errors);
       }

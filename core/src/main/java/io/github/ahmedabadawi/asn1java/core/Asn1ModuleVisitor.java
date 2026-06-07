@@ -8,6 +8,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
@@ -73,6 +74,8 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.octetStringType();
     } else if (context.bitStringType() != null) {
       typeContext = context.bitStringType();
+    } else if (context.nullType() != null) {
+      typeContext = context.nullType();
     } else {
       typeContext = context.enumeratedType();
     }
@@ -108,6 +111,11 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
         ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
         : Optional.empty();
     return new OctetStringTypeNode(sizeConstraint);
+  }
+
+  @Override
+  public NullTypeNode visitNullType(ASN1Parser.NullTypeContext context) {
+    return new NullTypeNode();
   }
 
   @Override
