@@ -7,6 +7,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
+import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
@@ -106,16 +107,22 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
   @Override
   public ConstraintNode visitConstraint(ASN1Parser.ConstraintContext context) {
-    var lowerBoundContext = context.lowerBound();
-    int lowerSign = lowerBoundContext.MINUS() != null ? -1 : 1;
-    int lowerMagnitude = Integer.parseInt(lowerBoundContext.NUMBER().getText());
-    int lower = lowerSign * lowerMagnitude;
+    Bound lower = parseLowerBound(context.lowerBound());
     Bound upper = switch (visit(context.upperBound())) {
       case Bound b -> b;
       default -> throw new IllegalStateException(
           "unexpected node for upperBound: " + context.upperBound().getText());
     };
     return new ConstraintNode(lower, upper);
+  }
+
+  private Bound parseLowerBound(ASN1Parser.LowerBoundContext context) {
+    if (context.MIN() != null) {
+      return new MinBound();
+    }
+    int sign = context.MINUS() != null ? -1 : 1;
+    int magnitude = Integer.parseInt(context.NUMBER().getText());
+    return new NumberBound(sign * magnitude);
   }
 
   @Override

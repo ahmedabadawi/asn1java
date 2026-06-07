@@ -9,6 +9,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
@@ -37,7 +38,9 @@ final class ModelGenerator {
     MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
     for (FieldNode field : seq.fields()) {
       TypeName javaType = switch (field.type()) {
-        case IntegerTypeNode ignored -> TypeName.INT;
+        case IntegerTypeNode intType ->
+            intType.constraint() != null && intType.constraint().lowerBound() instanceof MinBound
+                ? TypeName.LONG : TypeName.INT;
         case BooleanTypeNode ignored -> TypeName.BOOLEAN;
         case Utf8StringTypeNode ignored -> STRING;
         case SequenceTypeNode ignored ->
