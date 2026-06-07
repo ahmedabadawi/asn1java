@@ -6,6 +6,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
@@ -70,6 +71,8 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.utf8StringType();
     } else if (context.octetStringType() != null) {
       typeContext = context.octetStringType();
+    } else if (context.bitStringType() != null) {
+      typeContext = context.bitStringType();
     } else {
       typeContext = context.enumeratedType();
     }
@@ -105,6 +108,14 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
         ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
         : Optional.empty();
     return new OctetStringTypeNode(sizeConstraint);
+  }
+
+  @Override
+  public BitStringTypeNode visitBitStringType(ASN1Parser.BitStringTypeContext context) {
+    Optional<ConstraintNode> sizeConstraint = context.sizeConstraint() != null
+        ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
+        : Optional.empty();
+    return new BitStringTypeNode(sizeConstraint);
   }
 
   private ConstraintNode parseSizeConstraint(ASN1Parser.SizeConstraintContext context) {

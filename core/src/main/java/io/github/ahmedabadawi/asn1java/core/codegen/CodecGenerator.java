@@ -11,6 +11,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
@@ -61,6 +62,18 @@ final class CodecGenerator {
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must not be null")
             .endControlFlow();
+      } else if (field.encoding() == Encoding.BIT_STRING) {
+        methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " must not be null")
+            .endControlFlow();
+        if (field.bitCount() == 0 && field.lowerBound() > 0) {
+          methodBuilder.beginControlFlow(
+                  "if (model.$N().length * 8 != $L)", field.name(), field.lowerBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " must be exactly " + field.lowerBound() + " bits")
+              .endControlFlow();
+        }
       } else if (field.encoding() == Encoding.OCTET_STRING) {
         methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
@@ -154,6 +167,8 @@ final class CodecGenerator {
               UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
         }
       }
+      case BIT_STRING -> builder.addStatement("$T.encodeBitString(out, model.$N(), $L)",
+          UPER_CODEC_SUPPORT, field.name(), field.lowerBound());
       case BOOLEAN -> builder.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", field.name());
       case UTF8_STRING -> builder.addStatement("$T.encodeUtf8String(out, model.$N())",
               UPER_CODEC_SUPPORT, field.name());
@@ -193,6 +208,8 @@ final class CodecGenerator {
               field.name(), UPER_CODEC_SUPPORT, field.lowerBound(), (int) field.upperBound());
         }
       }
+      case BIT_STRING -> builder.addStatement("byte[] $N = $T.decodeBitString(in, $L)",
+          field.name(), UPER_CODEC_SUPPORT, field.lowerBound());
       case BOOLEAN -> builder.addStatement("boolean $N = in.readBits(1) != 0", field.name());
       case UTF8_STRING ->
           builder.addStatement("$T $N = $T.decodeUtf8String(in)", ClassName.get("java.lang", "String"),
@@ -211,6 +228,7 @@ final class CodecGenerator {
             case BooleanTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.BOOLEAN, 1);
             case Utf8StringTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.UTF8_STRING, 0);
             case OctetStringTypeNode octetType -> toEncodedField(field.name(), octetType);
+            case BitStringTypeNode bitType -> toEncodedField(field.name(), bitType);
             case SequenceTypeNode ignored ->
                 throw new IllegalArgumentException("nested SEQUENCE not supported");
             case EnumeratedTypeNode enumType ->
@@ -222,9 +240,22 @@ final class CodecGenerator {
       case Utf8StringTypeNode ignored ->
           List.of(new EncodedField("value", 0, Encoding.UTF8_STRING, 0));
       case OctetStringTypeNode octetType -> List.of(toEncodedField("value", octetType));
+      case BitStringTypeNode bitType -> List.of(toEncodedField("value", bitType));
       case EnumeratedTypeNode enumType ->
           List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
     };
+  }
+
+  private static EncodedField toEncodedField(String name, BitStringTypeNode bitType) {
+    if (bitType.sizeConstraint().isEmpty()) {
+      return new EncodedField(name, 0, Encoding.BIT_STRING, 0, Long.MAX_VALUE);
+    }
+    ConstraintNode size = bitType.sizeConstraint().get();
+    int lb = ((NumberBound) size.lowerBound()).value();
+    int ub = ((NumberBound) size.upperBound()).value();
+    int range = ub - lb;
+    int rangeBitCount = range == 0 ? 0 : Integer.SIZE - Integer.numberOfLeadingZeros(range);
+    return new EncodedField(name, lb, Encoding.BIT_STRING, rangeBitCount, ub);
   }
 
   private static EncodedField toEncodedField(String name, OctetStringTypeNode octetType) {
@@ -280,7 +311,7 @@ final class CodecGenerator {
     };
   }
 
-  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED, OCTET_STRING}
+  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED, OCTET_STRING, BIT_STRING}
 
   private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
