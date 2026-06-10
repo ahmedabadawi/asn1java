@@ -1,0 +1,6 @@
+spec:    spec/transport-message.asn
+type:    Message
+input:   examples/transport-message/valid-1.json
+hex:     010002686900000007fc
+bytes:   10
+bits:    80 (byte-padded)

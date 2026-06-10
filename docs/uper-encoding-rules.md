@@ -247,8 +247,12 @@ for the length, then the length bytes. Minimum 1-byte count even for empty paylo
 
 ### `OCTET STRING (SIZE (lb..ub))` — range-constrained length
 
-Length is encoded as a constrained whole number in the range `0..(ub-lb)`, using
-`ceil(log2(ub-lb+1))` bits (or 0 bits if `lb == ub`). Then the `length` bytes follow.
+When `ub < 65536`: Length is encoded as a constrained whole number in the range `0..(ub-lb)`,
+using `ceil(log2(ub-lb+1))` bits (or 0 bits if `lb == ub`). Then the `length` bytes follow.
+
+When `ub >= 65536` (§16.7): The length is encoded with the §10.7 unconstrained length
+determinant (the actual length value, not an offset from lb): 1 byte if length < 128,
+2 bytes otherwise. Then the bytes follow.
 
 **Steps:**
 1. `offset = length − lb`
@@ -392,6 +396,29 @@ as `charValue − 32` (not the raw ASCII value).
 | value   | offset | char 'h' (104) | char 'i' (105)  |
 |---------|--------|----------------|-----------------|
 | `"hi"`  | 1      | `104-32=72` → `1001000` | `105-32=73` → `1001001` |
+
+---
+
+## Type Reference — delegated encoding
+
+A field whose type is a user-defined name (e.g. `major VersionSingle`) encodes exactly as
+the referenced type's own encoding with no wrapper, length prefix, or tag added. The bit
+stream produced by encoding a type-reference field is identical to encoding the referenced
+type's value as a standalone message.
+
+**Example** (`ProtocolVersion ::= SEQUENCE { major VersionSingle, minor VersionSingle }`
+where `VersionSingle ::= INTEGER (0..255)`):
+
+The bit stream for `ProtocolVersion(major=1, minor=0)` is simply the constrained-integer
+encoding of `major` (8 bits) concatenated with the constrained-integer encoding of `minor`
+(8 bits) — no difference from having written `major INTEGER (0..255)` inline:
+
+| field  | encoded as | bits       | hex |
+|--------|-----------|------------|-----|
+| major  | INTEGER (0..255), value=1 | `00000001` | `01` |
+| minor  | INTEGER (0..255), value=0 | `00000000` | `00` |
+
+Full `ProtocolVersion(1, 0)` encoding: `0100`
 
 ---
 

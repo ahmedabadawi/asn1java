@@ -1,0 +1,8 @@
+{
+  "protocol-version": {"major": 2, "minor": 3},
+  "message-type": "hello",
+  "payload": {
+    "message-time-to-live": 3600,
+    "data": "deadbeef"
+  }
+}
