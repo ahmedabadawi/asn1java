@@ -1,0 +1,29 @@
+TransportMessageModule
+
+DEFINITIONS
+  AUTOMATIC TAGS ::=
+BEGIN
+
+VersionSingle ::= INTEGER (0..255)
+MessageType ::= UTF8String (SIZE(2..9))
+
+Message ::= SEQUENCE {
+  protocol-version ProtocolVersion,
+  message-type MessageType,
+  payload Payload
+}
+
+Payload ::= SEQUENCE
+{
+  message-time-to-live INTEGER(0..2621430), -- In seconds. 0=no limit
+  data OCTET STRING (SIZE(1..65536))
+}
+
+
+ProtocolVersion ::= SEQUENCE
+{
+  major VersionSingle,
+  minor VersionSingle
+}
+
+END
