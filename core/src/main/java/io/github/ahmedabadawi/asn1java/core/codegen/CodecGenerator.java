@@ -21,6 +21,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 
 import javax.lang.model.element.Modifier;
@@ -47,18 +48,32 @@ final class CodecGenerator {
     TypeSpec codec =
         TypeSpec.classBuilder(typeAssignment.name() + "Codec")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addMethod(buildEncodeMethod(modelClass, fields))
-            .addMethod(buildDecodeMethod(modelClass, fields)).build();
+            .addMethod(buildEncodeMethod(modelClass, fields, targetPackage))
+            .addMethod(buildEncodeIntoMethod(modelClass, fields, targetPackage))
+            .addMethod(buildDecodeMethod(modelClass, fields, targetPackage))
+            .addMethod(buildDecodeFromMethod(modelClass, fields, targetPackage))
+            .build();
     return JavaFile.builder(targetPackage, codec).build();
   }
 
-  private static MethodSpec buildEncodeMethod(ClassName modelClass, List<EncodedField> fields) {
-    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("encode")
+  private static MethodSpec buildEncodeMethod(ClassName modelClass, List<EncodedField> fields,
+      String targetPackage) {
+    return MethodSpec.methodBuilder("encode")
         .addModifiers(Modifier.PUBLIC)
         .returns(ArrayTypeName.of(TypeName.BYTE))
+        .addParameter(ParameterSpec.builder(modelClass, "model").build())
+        .addStatement("$T out = new $T()", UPER_OUTPUT_STREAM, UPER_OUTPUT_STREAM)
+        .addStatement("encodeInto(out, model)")
+        .addStatement("return out.toByteArray()")
+        .build();
+  }
+
+  private static MethodSpec buildEncodeIntoMethod(ClassName modelClass, List<EncodedField> fields,
+      String targetPackage) {
+    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("encodeInto")
+        .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
         .addParameter(ParameterSpec.builder(modelClass, "model").build());
 
-    // Validation
     for (EncodedField field : fields) {
       if (field.encoding() == Encoding.UTF8_STRING) {
         methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
@@ -68,7 +83,8 @@ final class CodecGenerator {
         if (field.lowerBound() > 0) {
           methodBuilder.beginControlFlow(
                   "if (model.$N().getBytes($T.UTF_8).length < $L)",
-                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"), field.lowerBound())
+                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
+                  field.lowerBound())
               .addStatement("throw new $T($S)", IllegalArgumentException.class,
                   field.name() + " length must be >= " + field.lowerBound())
               .endControlFlow();
@@ -76,12 +92,14 @@ final class CodecGenerator {
         if (field.upperBound() != Long.MAX_VALUE) {
           methodBuilder.beginControlFlow(
                   "if (model.$N().getBytes($T.UTF_8).length > $L)",
-                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"), (int) field.upperBound())
+                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
+                  (int) field.upperBound())
               .addStatement("throw new $T($S)", IllegalArgumentException.class,
                   field.name() + " length must be <= " + (int) field.upperBound())
               .endControlFlow();
         }
-      } else if (field.encoding() == Encoding.IA5_STRING || field.encoding() == Encoding.VISIBLE_STRING) {
+      } else if (field.encoding() == Encoding.IA5_STRING
+          || field.encoding() == Encoding.VISIBLE_STRING) {
         methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must not be null")
@@ -138,33 +156,35 @@ final class CodecGenerator {
                   field.name() + " must be <= " + field.upperBound())
               .endControlFlow();
         }
-      } else if (field.encoding() != Encoding.BOOLEAN) {
-        methodBuilder.beginControlFlow("if (model.$N() < $L)",
-                field.name(), field.lowerBound())
+      } else if (field.encoding() != Encoding.BOOLEAN && field.encoding() != Encoding.TYPE_REFERENCE) {
+        methodBuilder.beginControlFlow("if (model.$N() < $L)", field.name(), field.lowerBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must be >= " + field.lowerBound())
             .endControlFlow();
       }
     }
 
-    methodBuilder.addStatement("$T out = new $T()", UPER_OUTPUT_STREAM, UPER_OUTPUT_STREAM);
-
-    fields.forEach(field -> addEncodeStatement(methodBuilder, field));
-
-    methodBuilder.addStatement("return out.toByteArray()");
+    fields.forEach(field -> addEncodeStatement(methodBuilder, field, targetPackage));
     return methodBuilder.build();
   }
 
-  private static MethodSpec buildDecodeMethod(ClassName modelClass, List<EncodedField> fields) {
-    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("decode")
+  private static MethodSpec buildDecodeMethod(ClassName modelClass, List<EncodedField> fields,
+      String targetPackage) {
+    return MethodSpec.methodBuilder("decode")
         .addModifiers(Modifier.PUBLIC)
         .returns(modelClass)
-        .addParameter(
-            ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "data").build());
+        .addParameter(ParameterSpec.builder(ArrayTypeName.of(TypeName.BYTE), "data").build())
+        .addStatement("return decodeFrom(new $T(data))", UPER_INPUT_STREAM)
+        .build();
+  }
 
-    methodBuilder.addStatement("$T in = new $T(data)", UPER_INPUT_STREAM, UPER_INPUT_STREAM);
+  private static MethodSpec buildDecodeFromMethod(ClassName modelClass, List<EncodedField> fields,
+      String targetPackage) {
+    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("decodeFrom")
+        .returns(modelClass)
+        .addParameter(ParameterSpec.builder(UPER_INPUT_STREAM, "in").build());
 
-    fields.forEach(field -> addDecodeStatement(methodBuilder, field));
+    fields.forEach(field -> addDecodeStatement(methodBuilder, field, targetPackage));
 
     String args = fields.stream()
         .map(EncodedField::name)
@@ -173,7 +193,8 @@ final class CodecGenerator {
     return methodBuilder.build();
   }
 
-  private static void addEncodeStatement(MethodSpec.Builder builder, EncodedField field) {
+  private static void addEncodeStatement(MethodSpec.Builder builder, EncodedField field,
+      String targetPackage) {
     switch (field.encoding()) {
       case SEMI_CONSTRAINED -> {
         if (field.lowerBound() == 0) {
@@ -186,8 +207,7 @@ final class CodecGenerator {
       }
       case CONSTRAINED -> {
         if (field.lowerBound() == 0) {
-          builder.addStatement("out.writeBits(model.$N(), $L)",
-              field.name(), field.bitCount());
+          builder.addStatement("out.writeBits(model.$N(), $L)", field.name(), field.bitCount());
         } else {
           builder.addStatement("out.writeBits(model.$N() - $L, $L)",
               field.name(), field.lowerBound(), field.bitCount());
@@ -213,13 +233,16 @@ final class CodecGenerator {
           UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
       case BOOLEAN -> builder.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", field.name());
       case UTF8_STRING -> builder.addStatement("$T.encodeUtf8String(out, model.$N())",
-              UPER_CODEC_SUPPORT, field.name());
+          UPER_CODEC_SUPPORT, field.name());
       case ENUMERATED -> builder.addStatement("out.writeBits(model.$N(), $L)",
-              field.name(), field.bitCount());
+          field.name(), field.bitCount());
+      case TYPE_REFERENCE -> builder.addStatement("new $T().encodeInto(out, model.$N())",
+          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), field.name());
     }
   }
 
-  private static void addDecodeStatement(MethodSpec.Builder builder, EncodedField field) {
+  private static void addDecodeStatement(MethodSpec.Builder builder, EncodedField field,
+      String targetPackage) {
     switch (field.encoding()) {
       case SEMI_CONSTRAINED -> {
         if (field.lowerBound() == 0) {
@@ -234,8 +257,8 @@ final class CodecGenerator {
         if (field.lowerBound() == 0) {
           builder.addStatement("int $N = (int) in.readBits($L)", field.name(), field.bitCount());
         } else {
-          builder.addStatement("int $N = (int) in.readBits($L) + $L", field.name(), field.bitCount(),
-              field.lowerBound());
+          builder.addStatement("int $N = (int) in.readBits($L) + $L", field.name(),
+              field.bitCount(), field.lowerBound());
         }
       }
       case ZERO_RANGE -> builder.addStatement("int $N = $L", field.name(), field.lowerBound());
@@ -259,11 +282,14 @@ final class CodecGenerator {
           ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT,
           field.lowerBound(), (int) field.upperBound());
       case BOOLEAN -> builder.addStatement("boolean $N = in.readBits(1) != 0", field.name());
-      case UTF8_STRING ->
-          builder.addStatement("$T $N = $T.decodeUtf8String(in)", ClassName.get("java.lang", "String"),
-              field.name(), UPER_CODEC_SUPPORT);
+      case UTF8_STRING -> builder.addStatement("$T $N = $T.decodeUtf8String(in)",
+          ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT);
       case ENUMERATED -> builder.addStatement("int $N = (int) in.readBits($L)",
-              field.name(), field.bitCount());
+          field.name(), field.bitCount());
+      case TYPE_REFERENCE -> builder.addStatement("$T $N = new $T().decodeFrom(in)",
+          ClassName.get(targetPackage, field.referencedTypeName()),
+          field.name(),
+          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"));
     }
   }
 
@@ -272,20 +298,26 @@ final class CodecGenerator {
       case SequenceTypeNode seq -> seq.fields()
           .stream()
           .filter(field -> !(field.type() instanceof NullTypeNode))
-          .map(field -> switch (field.type()) {
-            case IntegerTypeNode intType -> toEncodedField(field.name(), intType);
-            case BooleanTypeNode ignored -> new EncodedField(field.name(), 0, Encoding.BOOLEAN, 1);
-            case Utf8StringTypeNode utf8Type -> toEncodedField(field.name(), utf8Type);
-            case OctetStringTypeNode octetType -> toEncodedField(field.name(), octetType);
-            case BitStringTypeNode bitType -> toEncodedField(field.name(), bitType);
-            case NullTypeNode ignored ->
-                throw new IllegalStateException("null type should have been filtered");
-            case Ia5StringTypeNode ia5Type -> toEncodedField(field.name(), ia5Type);
-            case VisibleStringTypeNode visibleType -> toEncodedField(field.name(), visibleType);
-            case SequenceTypeNode ignored ->
-                throw new IllegalArgumentException("nested SEQUENCE not supported");
-            case EnumeratedTypeNode enumType ->
-                new EncodedField(field.name(), 0, Encoding.ENUMERATED, enumBitCount(enumType));
+          .map(field -> {
+            String javaName = CodegenUtils.toJavaFieldName(field.name());
+            return switch (field.type()) {
+              case IntegerTypeNode intType -> toEncodedField(javaName, intType);
+              case BooleanTypeNode ignored -> new EncodedField(javaName, 0, Encoding.BOOLEAN, 1);
+              case Utf8StringTypeNode utf8Type -> toEncodedField(javaName, utf8Type);
+              case OctetStringTypeNode octetType -> toEncodedField(javaName, octetType);
+              case BitStringTypeNode bitType -> toEncodedField(javaName, bitType);
+              case NullTypeNode ignored ->
+                  throw new IllegalStateException("null type should have been filtered");
+              case Ia5StringTypeNode ia5Type -> toEncodedField(javaName, ia5Type);
+              case VisibleStringTypeNode visibleType -> toEncodedField(javaName, visibleType);
+              case SequenceTypeNode ignored ->
+                  throw new IllegalArgumentException("nested SEQUENCE not supported");
+              case EnumeratedTypeNode enumType ->
+                  new EncodedField(javaName, 0, Encoding.ENUMERATED, enumBitCount(enumType));
+              case TypeReferenceNode ref ->
+                  new EncodedField(javaName, 0, Encoding.TYPE_REFERENCE, 0, Long.MAX_VALUE,
+                      ref.typeName());
+            };
           })
           .collect(Collectors.toList());
       case IntegerTypeNode intType -> List.of(toEncodedField("value", intType));
@@ -298,6 +330,9 @@ final class CodecGenerator {
       case VisibleStringTypeNode visibleType -> List.of(toEncodedField("value", visibleType));
       case EnumeratedTypeNode enumType ->
           List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
+      case TypeReferenceNode ignored ->
+          throw new IllegalArgumentException(
+              "top-level TypeReferenceNode is not a valid type assignment body");
     };
   }
 
@@ -396,11 +431,19 @@ final class CodecGenerator {
     };
   }
 
-  private enum Encoding {SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED, OCTET_STRING, BIT_STRING, IA5_STRING, VISIBLE_STRING}
+  private enum Encoding {
+    SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED,
+    OCTET_STRING, BIT_STRING, IA5_STRING, VISIBLE_STRING, TYPE_REFERENCE
+  }
 
-  private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
+  private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
+      long upperBound, String referencedTypeName) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
-      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE);
+      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null);
+    }
+
+    EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
+      this(name, lowerBound, encoding, bitCount, upperBound, null);
     }
   }
 }

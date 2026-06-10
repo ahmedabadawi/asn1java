@@ -18,6 +18,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -42,9 +43,28 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public TypeAssignmentNode visitTypeAssignment(ASN1Parser.TypeAssignmentContext context) {
     String name = context.UPPER_IDENT().getText();
-    ParserRuleContext typeContext = context.sequenceType() != null
-        ? context.sequenceType()
-        : context.enumeratedType();
+    ParserRuleContext typeContext;
+    if (context.sequenceType() != null) {
+      typeContext = context.sequenceType();
+    } else if (context.enumeratedType() != null) {
+      typeContext = context.enumeratedType();
+    } else if (context.integerType() != null) {
+      typeContext = context.integerType();
+    } else if (context.utf8StringType() != null) {
+      typeContext = context.utf8StringType();
+    } else if (context.octetStringType() != null) {
+      typeContext = context.octetStringType();
+    } else if (context.bitStringType() != null) {
+      typeContext = context.bitStringType();
+    } else if (context.ia5StringType() != null) {
+      typeContext = context.ia5StringType();
+    } else if (context.visibleStringType() != null) {
+      typeContext = context.visibleStringType();
+    } else if (context.nullType() != null) {
+      typeContext = context.nullType();
+    } else {
+      typeContext = context.booleanType();
+    }
     TypeNode type = switch (visit(typeContext)) {
       case TypeNode t -> t;
       default -> throw new IllegalStateException(
@@ -82,8 +102,10 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.ia5StringType();
     } else if (context.visibleStringType() != null) {
       typeContext = context.visibleStringType();
-    } else {
+    } else if (context.enumeratedType() != null) {
       typeContext = context.enumeratedType();
+    } else {
+      return new FieldNode(name, new TypeReferenceNode(context.typeReference().UPPER_IDENT().getText()));
     }
     TypeNode type = switch (visit(typeContext)) {
       case TypeNode t -> t;

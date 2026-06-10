@@ -16,6 +16,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SemanticException;
 
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class Asn1SemanticValidator {
 
@@ -31,9 +33,13 @@ public class Asn1SemanticValidator {
 
     checkDuplicateTypeNames(module, errors);
 
+    Set<String> definedTypeNames = module.types().stream()
+        .map(TypeAssignmentNode::name)
+        .collect(Collectors.toSet());
+
     for (TypeAssignmentNode type : module.types()) {
       switch (type.type()) {
-        case SequenceTypeNode seq -> checkSequence(type.name(), seq, errors);
+        case SequenceTypeNode seq -> checkSequence(type.name(), seq, definedTypeNames, errors);
         case IntegerTypeNode it -> checkConstraint(type.name(), it.constraint(), errors);
         case BooleanTypeNode ignored -> {
         }
@@ -50,6 +56,8 @@ public class Asn1SemanticValidator {
         case VisibleStringTypeNode visibleType ->
             visibleType.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
         case EnumeratedTypeNode enumType -> checkEnumerated(type.name(), enumType, errors);
+        case TypeReferenceNode ignored -> {
+        }
       }
     }
 
@@ -67,7 +75,8 @@ public class Asn1SemanticValidator {
     }
   }
 
-  private void checkSequence(String typeName, SequenceTypeNode seq, List<ValidationError> errors) {
+  private void checkSequence(String typeName, SequenceTypeNode seq,
+      Set<String> definedTypeNames, List<ValidationError> errors) {
     Set<String> seen = new HashSet<>();
     for (FieldNode field : seq.fields()) {
       if (!seen.add(field.name())) {
@@ -77,7 +86,8 @@ public class Asn1SemanticValidator {
       switch (field.type()) {
         case IntegerTypeNode it ->
             checkConstraint(typeName + "." + field.name(), it.constraint(), errors);
-        case SequenceTypeNode st -> checkSequence(typeName + "." + field.name(), st, errors);
+        case SequenceTypeNode st ->
+            checkSequence(typeName + "." + field.name(), st, definedTypeNames, errors);
         case BooleanTypeNode ignored -> {
         }
         case Utf8StringTypeNode utf8Type ->
@@ -99,6 +109,13 @@ public class Asn1SemanticValidator {
                 c -> checkConstraint(typeName + "." + field.name(), c, errors));
         case EnumeratedTypeNode enumType ->
             checkEnumerated(typeName + "." + field.name(), enumType, errors);
+        case TypeReferenceNode ref -> {
+          if (!definedTypeNames.contains(ref.typeName())) {
+            errors.add(new ValidationError(
+                "Unknown type reference '%s' in field %s.%s"
+                    .formatted(ref.typeName(), typeName, field.name())));
+          }
+        }
       }
     }
   }
