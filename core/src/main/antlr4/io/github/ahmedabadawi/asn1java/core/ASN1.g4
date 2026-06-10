@@ -15,7 +15,10 @@ memberList
     ;
 
 typeAssignment
-    : UPPER_IDENT ASSIGNMENT (sequenceType | enumeratedType)
+    : UPPER_IDENT ASSIGNMENT
+      (sequenceType | enumeratedType | integerType | utf8StringType
+       | octetStringType | bitStringType | ia5StringType | visibleStringType
+       | nullType | booleanType)
     ;
 
 sequenceType
@@ -27,7 +30,11 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType)
+    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType | typeReference)
+    ;
+
+typeReference
+    : UPPER_IDENT
     ;
 
 booleanType
