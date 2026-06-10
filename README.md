@@ -90,6 +90,10 @@ For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin gener
 - [x] `IA5String (SIZE (lb..ub))` — 7-bit ASCII per character, constrained length field (§27)
 - [x] `VisibleString (SIZE (lb..ub))` — same encoding as IA5String (7-bit raw ASCII); identical wire format
 - [x] Single `SEQUENCE` with INTEGER, BOOLEAN, UTF8String, OCTET STRING, and ENUMERATED fields
+- [x] **Primitive type assignments** — `MyAlias ::= INTEGER (lb..ub)` / `UTF8String (SIZE(lb..ub))` etc. as top-level declarations; each generates its own wrapper model record and codec
+- [x] **Type references in SEQUENCE fields** — `field MyType` where `MyType` is a user-defined type; the parent codec delegates to the referenced codec's streaming methods
+- [x] **Hyphenated ASN.1 field names** — `message-time-to-live` is mapped to camelCase Java name `messageTimeToLive`
+- [x] `OCTET STRING (SIZE (lb..ub))` where `ub >= 65536` — uses §10.7 unconstrained length determinant (actual length in 1–2 bytes) per X.691 §16.7
 
 ## Known Issues
 
