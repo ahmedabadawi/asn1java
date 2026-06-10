@@ -1,0 +1,8 @@
+{
+  "protocol-version": {"major": 1, "minor": 0},
+  "message-type": "x",
+  "payload": {
+    "message-time-to-live": 0,
+    "data": "ff"
+  }
+}
