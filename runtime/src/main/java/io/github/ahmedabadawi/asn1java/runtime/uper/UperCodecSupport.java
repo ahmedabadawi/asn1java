@@ -47,20 +47,38 @@ public final class UperCodecSupport {
   }
 
   // X.691 §16: OCTET STRING, SIZE-constrained (range lb..ub)
-  // Length offset is encoded as a constrained whole number using bitCount bits, then the bytes.
+  // When ub >= 64K the standard (§16.7) requires the §10.7 unconstrained length determinant
+  // (actual length in 1 or 2 bytes); otherwise the length offset is encoded as a constrained
+  // whole number using bitCount bits.
   public static void encodeOctetString(UperOutputStream out, byte[] value, int lb, int ub) {
-    int range = ub - lb;
-    int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
-    out.writeBits(value.length - lb, bitCount);
+    if (ub >= 65536) {
+      int len = value.length;
+      if (len < 128) {
+        out.writeBits(len, 8);
+      } else {
+        out.writeBits(0x80 | (len >> 8), 8);
+        out.writeBits(len & 0xFF, 8);
+      }
+    } else {
+      int range = ub - lb;
+      int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+      out.writeBits(value.length - lb, bitCount);
+    }
     for (byte b : value) {
       out.writeBits(b & 0xFF, 8);
     }
   }
 
   public static byte[] decodeOctetString(UperInputStream in, int lb, int ub) {
-    int range = ub - lb;
-    int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
-    int length = (int) in.readBits(bitCount) + lb;
+    int length;
+    if (ub >= 65536) {
+      int first = (int) in.readBits(8);
+      length = (first & 0x80) == 0 ? first : ((first & 0x3F) << 8) | (int) in.readBits(8);
+    } else {
+      int range = ub - lb;
+      int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+      length = (int) in.readBits(bitCount) + lb;
+    }
     var result = new byte[length];
     for (int i = 0; i < length; i++) {
       result[i] = (byte) in.readBits(8);

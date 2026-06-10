@@ -247,8 +247,12 @@ for the length, then the length bytes. Minimum 1-byte count even for empty paylo
 
 ### `OCTET STRING (SIZE (lb..ub))` — range-constrained length
 
-Length is encoded as a constrained whole number in the range `0..(ub-lb)`, using
-`ceil(log2(ub-lb+1))` bits (or 0 bits if `lb == ub`). Then the `length` bytes follow.
+When `ub < 65536`: Length is encoded as a constrained whole number in the range `0..(ub-lb)`,
+using `ceil(log2(ub-lb+1))` bits (or 0 bits if `lb == ub`). Then the `length` bytes follow.
+
+When `ub >= 65536` (§16.7): The length is encoded with the §10.7 unconstrained length
+determinant (the actual length value, not an offset from lb): 1 byte if length < 128,
+2 bytes otherwise. Then the bytes follow.
 
 **Steps:**
 1. `offset = length − lb`
