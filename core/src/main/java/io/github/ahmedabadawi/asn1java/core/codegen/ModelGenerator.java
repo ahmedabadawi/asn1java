@@ -17,6 +17,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 
 import javax.lang.model.element.Modifier;
@@ -32,7 +33,7 @@ final class ModelGenerator {
 
   static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
     TypeSpec record = switch (typeAssignment.type()) {
-      case SequenceTypeNode seq -> buildSequenceRecord(typeAssignment.name(), seq);
+      case SequenceTypeNode seq -> buildSequenceRecord(targetPackage, typeAssignment.name(), seq);
       case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
       case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
       case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
@@ -42,11 +43,16 @@ final class ModelGenerator {
       case Ia5StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
       case VisibleStringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
       case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
+      case TypeReferenceNode ignored ->
+          throw new IllegalArgumentException(
+              "top-level TypeReferenceNode is not a valid type assignment body: "
+                  + typeAssignment.name());
     };
     return JavaFile.builder(targetPackage, record).build();
   }
 
-  private static TypeSpec buildSequenceRecord(String name, SequenceTypeNode seq) {
+  private static TypeSpec buildSequenceRecord(String targetPackage, String name,
+      SequenceTypeNode seq) {
     MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
     for (FieldNode field : seq.fields()) {
       if (field.type() instanceof NullTypeNode) {
@@ -67,8 +73,9 @@ final class ModelGenerator {
         case SequenceTypeNode ignored ->
             throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
         case EnumeratedTypeNode ignored -> TypeName.INT;
+        case TypeReferenceNode ref -> ClassName.get(targetPackage, ref.typeName());
       };
-      ctorBuilder.addParameter(javaType, field.name());
+      ctorBuilder.addParameter(javaType, CodegenUtils.toJavaFieldName(field.name()));
     }
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
