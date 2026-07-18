@@ -36,20 +36,20 @@ class Asn1CodeGeneratorTest {
 
   @Test
   void generate_simpleSequence_producesTwoFiles() {
-    var files = new Asn1CodeGenerator("io.example").generate(versionInfoModule());
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
     assertThat(files).hasSize(2);
   }
 
   @Test
   void generate_packageIncludesModuleNameLowercase() {
-    var files = new Asn1CodeGenerator("io.example").generate(versionInfoModule());
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
     assertThat(files).allSatisfy(
         f -> assertThat(f.packageName()).isEqualTo("io.example.versioninfo"));
   }
 
   @Test
   void generate_modelFile_containsRecordWithFields() {
-    var files = new Asn1CodeGenerator("io.example").generate(versionInfoModule());
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
     String model = findFile(files, "record Version").toString();
     assertThat(model).contains("public record Version(");
     assertThat(model).contains("int major");
@@ -58,7 +58,7 @@ class Asn1CodeGeneratorTest {
 
   @Test
   void generate_codecFile_containsEncodeAndDecode() {
-    var files = new Asn1CodeGenerator("io.example").generate(versionInfoModule());
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
     String codec = findFile(files, "VersionCodec").toString();
     assertThat(codec).contains("public byte[] encode(");
     assertThat(codec).contains("public Version decode(");
@@ -66,7 +66,7 @@ class Asn1CodeGeneratorTest {
 
   @Test
   void generate_codecFile_usesSemiConstrainedForMaxBound() {
-    var files = new Asn1CodeGenerator("io.example").generate(versionInfoModule());
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
     String codec = findFile(files, "VersionCodec").toString();
     assertThat(codec).contains("UperCodecSupport.encodeSemiConstrainedInt");
     assertThat(codec).contains("UperCodecSupport.decodeSemiConstrainedInt");
@@ -74,7 +74,7 @@ class Asn1CodeGeneratorTest {
 
   @Test
   void generate_codecFile_containsLowerBoundValidation() {
-    var files = new Asn1CodeGenerator("io.example").generate(versionInfoModule());
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
     String codec = findFile(files, "VersionCodec").toString();
     assertThat(codec).contains("< 0");
     assertThat(codec).contains("IllegalArgumentException");
@@ -86,7 +86,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("Flags", List.of(new TypeAssignmentNode("Flags",
         new SequenceTypeNode(List.of(new FieldNode("value",
             new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255)))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "FlagsCodec").toString();
     assertThat(codec).contains("writeBits");
     assertThat(codec).contains(", 8)");
@@ -96,7 +96,7 @@ class Asn1CodeGeneratorTest {
   void generate_topLevelIntegerType_producesWrapperRecord() {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("MyInt",
         new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record MyInt").toString();
     assertThat(model).contains("public record MyInt(");
     assertThat(model).contains("int value");
@@ -106,7 +106,7 @@ class Asn1CodeGeneratorTest {
   void generate_topLevelIntegerType_producesCodec() {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("MyInt",
         new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "MyIntCodec").toString();
     assertThat(codec).contains("public byte[] encode(");
     assertThat(codec).contains("public MyInt decode(");
@@ -116,7 +116,7 @@ class Asn1CodeGeneratorTest {
   void generate_booleanFieldInSequence_producesJavaBooleanType() {
     var module = new ModuleNode("DeviceInfo", List.of(new TypeAssignmentNode("Device",
         new SequenceTypeNode(List.of(new FieldNode("active", new BooleanTypeNode()))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Device").toString();
     assertThat(model).contains("boolean active");
   }
@@ -125,7 +125,7 @@ class Asn1CodeGeneratorTest {
   void generate_booleanField_emitsSingleBitWriteAndRead() {
     var module = new ModuleNode("DeviceInfo", List.of(new TypeAssignmentNode("Device",
         new SequenceTypeNode(List.of(new FieldNode("active", new BooleanTypeNode()))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "DeviceCodec").toString();
     assertThat(codec).contains("? 1 : 0, 1)");
     assertThat(codec).contains("readBits(1) != 0");
@@ -135,7 +135,7 @@ class Asn1CodeGeneratorTest {
   void generate_topLevelBooleanType_producesBooleanRecord() {
     var module =
         new ModuleNode("Types", List.of(new TypeAssignmentNode("Flag", new BooleanTypeNode())));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Flag").toString();
     assertThat(model).contains("boolean value");
   }
@@ -146,7 +146,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
         List.of(new FieldNode("x",
             new IntegerTypeNode(new ConstraintNode(new NumberBound(10), new NumberBound(20)))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "FooCodec").toString();
     assertThat(codec).contains("- 10");
     assertThat(codec).contains("+ 10");
@@ -156,7 +156,7 @@ class Asn1CodeGeneratorTest {
   void generate_utf8StringFieldInSequence_producesJavaStringType() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
         new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Person").toString();
     assertThat(model).contains("String name");
   }
@@ -165,7 +165,7 @@ class Asn1CodeGeneratorTest {
   void generate_utf8StringField_emitsUtf8StringHelperCalls() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
         new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "PersonCodec").toString();
     assertThat(codec).contains("encodeUtf8String");
     assertThat(codec).contains("decodeUtf8String");
@@ -175,7 +175,7 @@ class Asn1CodeGeneratorTest {
   void generate_utf8StringField_emitsNullValidation() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
         new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "PersonCodec").toString();
     assertThat(codec).contains("== null");
     assertThat(codec).contains("must not be null");
@@ -187,7 +187,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
             new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Status").toString();
     assertThat(model).contains("int state");
   }
@@ -198,7 +198,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
             new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "StatusCodec").toString();
     assertThat(codec).contains("writeBits(model.state(), 2)");
     assertThat(codec).contains("readBits(2)");
@@ -209,7 +209,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
             new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "StatusCodec").toString();
     assertThat(codec).contains("< 0");
     assertThat(codec).contains("IllegalArgumentException");
@@ -219,7 +219,7 @@ class Asn1CodeGeneratorTest {
   void generate_topLevelEnumeratedType_producesIntWrapperRecord() {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("State",
         new EnumeratedTypeNode(List.of("on", "off")))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record State").toString();
     assertThat(model).contains("int value");
   }
@@ -230,7 +230,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("Switch",
         new SequenceTypeNode(List.of(
             new FieldNode("state", new EnumeratedTypeNode(List.of("on", "off"))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "SwitchCodec").toString();
     assertThat(codec).contains("writeBits(model.state(), 1)");
   }
@@ -241,7 +241,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Offset", new SequenceTypeNode(
         List.of(new FieldNode("delta",
             new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Offset").toString();
     String codec = findFile(files, "OffsetCodec").toString();
     assertThat(model).contains("long delta");
@@ -254,7 +254,7 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Offset", new SequenceTypeNode(
         List.of(new FieldNode("delta",
             new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
-    var files = new Asn1CodeGenerator("io.example").generate(module);
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "OffsetCodec").toString();
     assertThat(codec).contains("> 0");
     assertThat(codec).contains("must be <= 0");

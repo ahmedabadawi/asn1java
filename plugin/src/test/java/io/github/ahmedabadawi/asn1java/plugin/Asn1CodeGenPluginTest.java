@@ -3,6 +3,7 @@ package io.github.ahmedabadawi.asn1java.plugin;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.ahmedabadawi.asn1java.core.codegen.JavaPackage;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,10 +36,17 @@ class Asn1CodeGenPluginTest {
 
   private Asn1CodeGenPlugin mojo(File specFile, File outputDir, String basePackage,
                                  List<Dependency> dependencies) {
+    var spec = new SpecFile();
+    spec.file = specFile;
+    return mojo(List.of(spec), outputDir, basePackage, dependencies);
+  }
+
+  private Asn1CodeGenPlugin mojo(List<SpecFile> specFiles, File outputDir, String basePackage,
+                                 List<Dependency> dependencies) {
 
     var mojo = new Asn1CodeGenPlugin();
-    mojo.specFiles = List.of(specFile);
-    mojo.basePackage = basePackage;
+    mojo.specFiles = specFiles;
+    mojo.basePackage = new JavaPackage(basePackage);
     mojo.outputDirectory = outputDir;
     mojo.project =
         new MavenProject() {
@@ -116,6 +124,45 @@ class Asn1CodeGenPluginTest {
         outputDir.toPath().resolve("io/example/versioninfo/VersionCodec.java"));
     assertThat(content).contains("public byte[] encode(");
     assertThat(content).contains("public Version decode(");
+  }
+
+  @Test
+  void execute_specFileHasPackageOverride_generatesIntoOverridePackage(@TempDir Path tmp)
+      throws Exception {
+    var specFile = tmp.resolve("simple.asn").toFile();
+    Files.writeString(specFile.toPath(), SIMPLE_ASN);
+    var outputDir = tmp.resolve("generated").toFile();
+    var spec = new SpecFile();
+    spec.file = specFile;
+    spec.packageName = new JavaPackage("io.override");
+
+    mojo(List.of(spec), outputDir, "io.example", List.of()).execute();
+
+    Path versionInfoDir = outputDir.toPath().resolve("io/override/versioninfo");
+    assertThat(versionInfoDir.resolve("Version.java")).exists();
+    assertThat(versionInfoDir.resolve("VersionCodec.java")).exists();
+    assertThat(outputDir.toPath().resolve("io/example")).doesNotExist();
+  }
+
+  @Test
+  void execute_multipleSpecFilesWithMixedPackages_generatesEachIntoItsOwnPackage(
+      @TempDir Path tmp) throws Exception {
+    var defaultSpecFile = tmp.resolve("simple.asn").toFile();
+    Files.writeString(defaultSpecFile.toPath(), SIMPLE_ASN);
+    var overrideSpecFile = tmp.resolve("simple-2.asn").toFile();
+    Files.writeString(overrideSpecFile.toPath(), SIMPLE_ASN);
+    var outputDir = tmp.resolve("generated").toFile();
+
+    var defaultSpec = new SpecFile();
+    defaultSpec.file = defaultSpecFile;
+    var overrideSpec = new SpecFile();
+    overrideSpec.file = overrideSpecFile;
+    overrideSpec.packageName = new JavaPackage("io.override");
+
+    mojo(List.of(defaultSpec, overrideSpec), outputDir, "io.example", List.of()).execute();
+
+    assertThat(outputDir.toPath().resolve("io/example/versioninfo/Version.java")).exists();
+    assertThat(outputDir.toPath().resolve("io/override/versioninfo/Version.java")).exists();
   }
 
   @Test

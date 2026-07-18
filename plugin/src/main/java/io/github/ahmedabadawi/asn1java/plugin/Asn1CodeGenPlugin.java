@@ -4,6 +4,7 @@ import io.github.ahmedabadawi.asn1java.core.Asn1Spec;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.codegen.Asn1CodeGenerator;
 import io.github.ahmedabadawi.asn1java.core.codegen.Asn1CodeWriter;
+import io.github.ahmedabadawi.asn1java.core.codegen.JavaPackage;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SemanticException;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SyntaxException;
 import java.io.File;
@@ -22,10 +23,10 @@ import org.apache.maven.project.MavenProject;
 public class Asn1CodeGenPlugin extends AbstractMojo {
 
   @Parameter(required = true)
-  List<File> specFiles;
+  List<SpecFile> specFiles;
 
   @Parameter(required = true)
-  String basePackage;
+  JavaPackage basePackage;
 
   @Parameter(defaultValue = "${project.build.directory}/generated-sources/asn1java")
   File outputDirectory;
@@ -38,18 +39,19 @@ public class Asn1CodeGenPlugin extends AbstractMojo {
     warnIfRuntimeMissing();
     project.addCompileSourceRoot(outputDirectory.getAbsolutePath());
 
-    var generator = new Asn1CodeGenerator(basePackage);
-
-    for (File specFile : specFiles) {
-      getLog().info("Generating sources from: %s".formatted(specFile));
+    for (SpecFile specFile : specFiles) {
+      File file = specFile.file;
+      getLog().info("Generating sources from: %s".formatted(file));
       String source;
       try {
-        source = Files.readString(specFile.toPath());
+        source = Files.readString(file.toPath());
       } catch (IOException e) {
-        throw new MojoExecutionException("Failed to read spec file: %s".formatted(specFile), e);
+        throw new MojoExecutionException("Failed to read spec file: %s".formatted(file), e);
       }
 
-      var module = parse(specFile, source);
+      var module = parse(file, source);
+      JavaPackage targetPackage = specFile.packageName != null ? specFile.packageName : basePackage;
+      var generator = new Asn1CodeGenerator(targetPackage);
       var files = generator.generate(module);
 
       try {
