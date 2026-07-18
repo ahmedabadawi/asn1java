@@ -102,6 +102,7 @@ Each `specFile` entry may optionally set `packageName` to override `basePackage`
 - [x] **Type references in SEQUENCE fields** — `field MyType` where `MyType` is a user-defined type; the parent codec delegates to the referenced codec's streaming methods
 - [x] **Hyphenated ASN.1 field names** — `message-time-to-live` is mapped to camelCase Java name `messageTimeToLive`
 - [x] `OCTET STRING (SIZE (lb..ub))` where `ub >= 65536` — uses §10.7 unconstrained length determinant (actual length in 1–2 bytes) per X.691 §16.7
+- [x] `CHOICE` — tagged union; constrained-whole-number alternative index (§23) followed by the selected alternative's own encoding; generates a Java sealed interface with one nested record per alternative
 
 ## Known Issues
 
