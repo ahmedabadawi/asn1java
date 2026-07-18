@@ -2,14 +2,17 @@ package io.github.ahmedabadawi.asn1java.core.codegen;
 
 import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
@@ -42,6 +45,10 @@ final class CodecGenerator {
   }
 
   static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
+    if (typeAssignment.type() instanceof ChoiceTypeNode choice) {
+      return generateChoiceCodec(targetPackage, typeAssignment.name(), choice);
+    }
+
     ClassName modelClass = ClassName.get(targetPackage, typeAssignment.name());
     List<EncodedField> fields = collectFields(typeAssignment);
 
@@ -54,6 +61,91 @@ final class CodecGenerator {
             .addMethod(buildDecodeFromMethod(modelClass, fields, targetPackage))
             .build();
     return JavaFile.builder(targetPackage, codec).build();
+  }
+
+  private static JavaFile generateChoiceCodec(String targetPackage, String name,
+      ChoiceTypeNode choice) {
+    ClassName modelClass = ClassName.get(targetPackage, name);
+    int bitCount = choiceIndexBitCount(choice);
+
+    TypeSpec codec =
+        TypeSpec.classBuilder(name + "Codec")
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+            .addMethod(buildEncodeMethod(modelClass, List.of(), targetPackage))
+            .addMethod(buildChoiceEncodeIntoMethod(targetPackage, modelClass, choice, bitCount))
+            .addMethod(buildDecodeMethod(modelClass, List.of(), targetPackage))
+            .addMethod(buildChoiceDecodeFromMethod(targetPackage, modelClass, name, choice, bitCount))
+            .build();
+    return JavaFile.builder(targetPackage, codec).build();
+  }
+
+  private static MethodSpec buildChoiceEncodeIntoMethod(String targetPackage, ClassName modelClass,
+      ChoiceTypeNode choice, int bitCount) {
+    MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("encodeInto")
+        .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
+        .addParameter(ParameterSpec.builder(modelClass, "model").build());
+
+    List<FieldNode> alternatives = choice.alternatives();
+    for (int index = 0; index < alternatives.size(); index++) {
+      FieldNode alternative = alternatives.get(index);
+      ClassName variantClassName =
+          modelClass.nestedClass(CodegenUtils.toJavaClassName(alternative.name()));
+      if (alternative.type() instanceof NullTypeNode) {
+        methodBuilder.beginControlFlow("if (model instanceof $T)", variantClassName)
+            .addStatement("out.writeBits($L, $L)", index, bitCount)
+            .addStatement("return")
+            .endControlFlow();
+      } else if (alternative.type() instanceof TypeReferenceNode ref) {
+        methodBuilder.beginControlFlow("if (model instanceof $T variant)", variantClassName)
+            .addStatement("out.writeBits($L, $L)", index, bitCount)
+            .addStatement("new $T().encodeInto(out, variant.value())",
+                ClassName.get(targetPackage, ref.typeName() + "Codec"))
+            .addStatement("return")
+            .endControlFlow();
+      } else {
+        throw new IllegalArgumentException(
+            "CHOICE alternative type not supported: " + alternative.type());
+      }
+    }
+    methodBuilder.addStatement("throw new $T($S + model)", IllegalArgumentException.class,
+        "Unknown choice variant: ");
+    return methodBuilder.build();
+  }
+
+  private static MethodSpec buildChoiceDecodeFromMethod(String targetPackage, ClassName modelClass,
+      String name, ChoiceTypeNode choice, int bitCount) {
+    CodeBlock.Builder switchBody = CodeBlock.builder();
+    switchBody.add("return switch (index) {\n");
+    List<FieldNode> alternatives = choice.alternatives();
+    for (int index = 0; index < alternatives.size(); index++) {
+      FieldNode alternative = alternatives.get(index);
+      ClassName variantClassName =
+          modelClass.nestedClass(CodegenUtils.toJavaClassName(alternative.name()));
+      if (alternative.type() instanceof NullTypeNode) {
+        switchBody.add("  case $L -> new $T();\n", index, variantClassName);
+      } else if (alternative.type() instanceof TypeReferenceNode ref) {
+        switchBody.add("  case $L -> new $T(new $T().decodeFrom(in));\n",
+            index, variantClassName, ClassName.get(targetPackage, ref.typeName() + "Codec"));
+      } else {
+        throw new IllegalArgumentException(
+            "CHOICE alternative type not supported: " + alternative.type());
+      }
+    }
+    switchBody.add("  default -> throw new $T($S + index);\n", IllegalArgumentException.class,
+        "Unknown " + name + " choice index: ");
+    switchBody.add("};\n");
+
+    return MethodSpec.methodBuilder("decodeFrom")
+        .returns(modelClass)
+        .addParameter(ParameterSpec.builder(UPER_INPUT_STREAM, "in").build())
+        .addStatement("int index = (int) in.readBits($L)", bitCount)
+        .addCode(switchBody.build())
+        .build();
+  }
+
+  private static int choiceIndexBitCount(ChoiceTypeNode choice) {
+    int count = choice.alternatives().size();
+    return count <= 1 ? 0 : Integer.SIZE - Integer.numberOfLeadingZeros(count - 1);
   }
 
   private static MethodSpec buildEncodeMethod(ClassName modelClass, List<EncodedField> fields,
@@ -312,6 +404,8 @@ final class CodecGenerator {
               case VisibleStringTypeNode visibleType -> toEncodedField(javaName, visibleType);
               case SequenceTypeNode ignored ->
                   throw new IllegalArgumentException("nested SEQUENCE not supported");
+              case ChoiceTypeNode ignored ->
+                  throw new IllegalArgumentException("nested CHOICE not supported");
               case EnumeratedTypeNode enumType ->
                   new EncodedField(javaName, 0, Encoding.ENUMERATED, enumBitCount(enumType));
               case TypeReferenceNode ref ->
@@ -320,6 +414,8 @@ final class CodecGenerator {
             };
           })
           .collect(Collectors.toList());
+      case ChoiceTypeNode ignored -> throw new IllegalStateException(
+          "choice types are handled via generateChoiceCodec");
       case IntegerTypeNode intType -> List.of(toEncodedField("value", intType));
       case BooleanTypeNode ignored -> List.of(new EncodedField("value", 0, Encoding.BOOLEAN, 1));
       case Utf8StringTypeNode utf8Type -> List.of(toEncodedField("value", utf8Type));

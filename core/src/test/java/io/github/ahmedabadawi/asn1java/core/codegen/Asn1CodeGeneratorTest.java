@@ -2,6 +2,7 @@ package io.github.ahmedabadawi.asn1java.core.codegen;
 
 import com.palantir.javapoet.JavaFile;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
@@ -9,10 +10,12 @@ import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
+import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import java.util.Optional;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.junit.jupiter.api.Test;
 
@@ -258,5 +261,44 @@ class Asn1CodeGeneratorTest {
     String codec = findFile(files, "OffsetCodec").toString();
     assertThat(codec).contains("> 0");
     assertThat(codec).contains("must be <= 0");
+  }
+
+  private static ModuleNode propulsionModule() {
+    return new ModuleNode("VehicleModule", List.of(
+        new TypeAssignmentNode("GasEngine", new SequenceTypeNode(List.of(
+            new FieldNode("displacementCc",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(8000)))),
+            new FieldNode("cylinders",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(1), new NumberBound(16))))))),
+        new TypeAssignmentNode("Propulsion", new ChoiceTypeNode(List.of(
+            new FieldNode("gasoline", new TypeReferenceNode("GasEngine")),
+            new FieldNode("none", new NullTypeNode()))))));
+  }
+
+  @Test
+  void generate_choiceType_producesSealedInterfaceWithNestedRecords() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(propulsionModule());
+    String model = findFile(files, "sealed interface Propulsion").toString();
+    assertThat(model).contains("public sealed interface Propulsion");
+    assertThat(model).contains("record Gasoline(");
+    assertThat(model).contains("record None(");
+  }
+
+  @Test
+  void generate_choiceType_emitsIndexWriteAndReadWithBitCount() {
+    // 2 alternatives: range=1, bitCount=1
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(propulsionModule());
+    String codec = findFile(files, "PropulsionCodec").toString();
+    assertThat(codec).contains("writeBits(0, 1)");
+    assertThat(codec).contains("writeBits(1, 1)");
+    assertThat(codec).contains("readBits(1)");
+  }
+
+  @Test
+  void generate_choiceType_delegatesToAlternativeCodec() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(propulsionModule());
+    String codec = findFile(files, "PropulsionCodec").toString();
+    assertThat(codec).contains("GasEngineCodec().encodeInto(out, variant.value())");
+    assertThat(codec).contains("new GasEngineCodec().decodeFrom(in)");
   }
 }
