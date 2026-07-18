@@ -42,7 +42,13 @@ Add the plugin to your `pom.xml`. The generated code depends on `asn1java-runtim
             </executions>
             <configuration>
                 <specFiles>
-                    <specFile>${project.basedir}/src/main/asn1/my.asn</specFile>
+                    <specFile>
+                        <file>${project.basedir}/src/main/asn1/my.asn</file>
+                    </specFile>
+                    <specFile>
+                        <file>${project.basedir}/src/main/asn1/other.asn</file>
+                        <packageName>com.example.gen.other</packageName>
+                    </specFile>
                 </specFiles>
                 <basePackage>com.example.gen</basePackage>
             </configuration>
@@ -54,6 +60,8 @@ Add the plugin to your `pom.xml`. The generated code depends on `asn1java-runtim
 For a spec named `MyModule` with `basePackage=com.example.gen`, the plugin generates:
 - `com.example.gen.mymodule.MyType` — Java record for each `SEQUENCE`
 - `com.example.gen.mymodule.MyTypeCodec` — UPER encoder/decoder for each type
+
+Each `specFile` entry may optionally set `packageName` to override `basePackage` for that spec only — its generated classes land under `packageName.<moduleName>` instead. Specs without `packageName` fall back to `basePackage`.
 
 ## Scope
 - `UPER` encoding/decoding

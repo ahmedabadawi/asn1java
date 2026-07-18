@@ -47,18 +47,21 @@
                 </executions>
                 <configuration>
                     <specFiles>
-                        <specFile>${project.basedir}/src/main/asn1/simple.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/device.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/person.asn</specFile>
-                    <specFile>${project.basedir}/src/main/asn1/score.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/status.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/priority.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/packet.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/flags.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/marker.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/label.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/identifier.asn</specFile>
-                        <specFile>${project.basedir}/src/main/asn1/transport-message.asn</specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/simple.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/device.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/person.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/score.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/status.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/priority.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/packet.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/flags.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/marker.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/label.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/identifier.asn</file></specFile>
+                        <specFile>
+                            <file>${project.basedir}/src/main/asn1/transport-message.asn</file>
+                            <packageName>io.github.ahmedabadawi.asn1java.sample.transport</packageName>
+                        </specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>

@@ -1,11 +1,11 @@
 package io.github.ahmedabadawi.asn1java.sample;
 
-import io.github.ahmedabadawi.asn1java.sample.transportmessagemodule.Message;
-import io.github.ahmedabadawi.asn1java.sample.transportmessagemodule.MessageCodec;
-import io.github.ahmedabadawi.asn1java.sample.transportmessagemodule.MessageType;
-import io.github.ahmedabadawi.asn1java.sample.transportmessagemodule.Payload;
-import io.github.ahmedabadawi.asn1java.sample.transportmessagemodule.ProtocolVersion;
-import io.github.ahmedabadawi.asn1java.sample.transportmessagemodule.VersionSingle;
+import io.github.ahmedabadawi.asn1java.sample.transport.transportmessagemodule.Message;
+import io.github.ahmedabadawi.asn1java.sample.transport.transportmessagemodule.MessageCodec;
+import io.github.ahmedabadawi.asn1java.sample.transport.transportmessagemodule.MessageType;
+import io.github.ahmedabadawi.asn1java.sample.transport.transportmessagemodule.Payload;
+import io.github.ahmedabadawi.asn1java.sample.transport.transportmessagemodule.ProtocolVersion;
+import io.github.ahmedabadawi.asn1java.sample.transport.transportmessagemodule.VersionSingle;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

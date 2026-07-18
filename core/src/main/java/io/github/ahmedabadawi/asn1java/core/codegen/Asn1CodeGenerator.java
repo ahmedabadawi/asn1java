@@ -9,14 +9,14 @@ import java.util.List;
 
 public final class Asn1CodeGenerator {
 
-  private final String basePackage;
+  private final JavaPackage basePackage;
 
-  public Asn1CodeGenerator(String basePackage) {
+  public Asn1CodeGenerator(JavaPackage basePackage) {
     this.basePackage = basePackage;
   }
 
   public List<JavaFile> generate(ModuleNode module) {
-    String targetPackage = basePackage + "." + module.name().toLowerCase();
+    String targetPackage = basePackage.child(module.name().toLowerCase()).value();
     return module.types().stream()
         .map(typeAssignment -> generate(targetPackage, typeAssignment))
         .flatMap(List::stream)
