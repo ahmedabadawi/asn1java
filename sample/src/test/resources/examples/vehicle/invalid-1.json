@@ -1,0 +1,13 @@
+{
+  "id": 1234,
+  "propulsion": {
+    "gasoline": {
+      "displacementCc": 1600,
+      "cylinders": 4
+    },
+    "electric": {
+      "powerKw": 150,
+      "batteryKwh": 75
+    }
+  }
+}

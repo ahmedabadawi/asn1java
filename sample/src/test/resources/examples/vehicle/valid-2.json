@@ -1,0 +1,9 @@
+{
+  "id": 5678,
+  "propulsion": {
+    "electric": {
+      "powerKw": 150,
+      "batteryKwh": 75
+    }
+  }
+}

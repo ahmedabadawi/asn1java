@@ -62,6 +62,7 @@
                             <file>${project.basedir}/src/main/asn1/transport-message.asn</file>
                             <packageName>io.github.ahmedabadawi.asn1java.sample.transport</packageName>
                         </specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/vehicle.asn</file></specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>
