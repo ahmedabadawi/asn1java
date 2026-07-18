@@ -17,15 +17,37 @@ import shutil
 import sys
 
 
-def _preprocess(data):
+def _preprocess(data, type_node=None):
     """Recursively convert JSON values to asn1tools-compatible Python types.
 
     - Hex strings → bytes (for OCTET STRING fields)
     - [hex_string, bit_count] arrays → (bytes, int) tuples (for BIT STRING fields)
+    - {"alternative-name": value} → ("alternative-name", value) tuples (for CHOICE
+      fields — asn1tools' Python API represents a chosen CHOICE alternative as a
+      2-tuple, not a dict, and JSON has no tuple type)
     - Other types are passed through unchanged.
+
+    `type_node` is the corresponding asn1tools compiled type (e.g. a
+    `codecs.per.Sequence` or `codecs.per.Choice` instance) when known, used to
+    resolve CHOICE alternatives and to recurse into SEQUENCE member types by name.
     """
+    type_name = type(type_node).__name__ if type_node is not None else None
+
+    if type_name == "Choice":
+        if not isinstance(data, dict) or len(data) != 1:
+            raise ValueError(
+                "CHOICE value must be a single-key object naming the chosen "
+                "alternative, got: {}".format(data))
+        (alternative_name, alternative_value), = data.items()
+        member_type = type_node.root_index_to_member[
+            type_node.root_name_to_index[alternative_name]]
+        return (alternative_name, _preprocess(alternative_value, member_type))
+
     if isinstance(data, dict):
-        return {k: _preprocess(v) for k, v in data.items()}
+        member_by_name = {}
+        if type_name == "Sequence":
+            member_by_name = {member.name: member for member in type_node.root_members}
+        return {k: _preprocess(v, member_by_name.get(k)) for k, v in data.items()}
     if isinstance(data, list):
         if len(data) == 2 and isinstance(data[1], int):
             try:
@@ -54,6 +76,7 @@ def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int
     print(f" Inputs    : {' '.join(input_files)}")
 
     db = asn1tools.compile_files([f"/work/{spec_file}"], codec="uper")
+    root_type_node = db.types[root_type].type
 
     exit_code = 0
 
@@ -67,10 +90,9 @@ def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int
         print()
         print(f"  ┌─ {input_file}")
 
-        with open(f"/work/{input_file}") as f:
-            data = _preprocess(json.load(f))
-
         try:
+            with open(f"/work/{input_file}") as f:
+                data = _preprocess(json.load(f), root_type_node)
             encoded: bytes = db.encode(root_type, data, check_constraints=True)
         except Exception as e:
             with open(out_err, "w") as f:

@@ -1,0 +1,6 @@
+spec:    spec/vehicle.asn
+type:    Vehicle
+input:   examples/vehicle/valid-3.json
+hex:     002a80
+bytes:   3
+bits:    24 (byte-padded)

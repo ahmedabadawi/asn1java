@@ -1,0 +1,1 @@
+CHOICE value must be a single-key object naming the chosen alternative, got: {'gasoline': {'displacementCc': 1600, 'cylinders': 4}, 'electric': {'powerKw': 150, 'batteryKwh': 75}}
