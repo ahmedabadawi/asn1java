@@ -7,6 +7,7 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.VisibleStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
@@ -17,6 +18,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 
@@ -34,6 +36,7 @@ final class ModelGenerator {
   static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
     TypeSpec record = switch (typeAssignment.type()) {
       case SequenceTypeNode seq -> buildSequenceRecord(targetPackage, typeAssignment.name(), seq);
+      case ChoiceTypeNode choice -> buildChoiceInterface(targetPackage, typeAssignment.name(), choice);
       case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
       case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
       case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
@@ -58,29 +61,56 @@ final class ModelGenerator {
       if (field.type() instanceof NullTypeNode) {
         continue;
       }
-      TypeName javaType = switch (field.type()) {
-        case IntegerTypeNode intType ->
-            intType.constraint() != null && intType.constraint().lowerBound() instanceof MinBound
-                ? TypeName.LONG : TypeName.INT;
-        case BooleanTypeNode ignored -> TypeName.BOOLEAN;
-        case Utf8StringTypeNode ignored -> STRING;
-        case OctetStringTypeNode ignored -> BYTE_ARRAY;
-        case BitStringTypeNode ignored -> BYTE_ARRAY;
-        case NullTypeNode ignored ->
-            throw new IllegalStateException("null type should have been skipped");
-        case Ia5StringTypeNode ignored -> STRING;
-        case VisibleStringTypeNode ignored -> STRING;
-        case SequenceTypeNode ignored ->
-            throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
-        case EnumeratedTypeNode ignored -> TypeName.INT;
-        case TypeReferenceNode ref -> ClassName.get(targetPackage, ref.typeName());
-      };
+      TypeName javaType = resolveFieldJavaType(targetPackage, field.type());
       ctorBuilder.addParameter(javaType, CodegenUtils.toJavaFieldName(field.name()));
     }
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
         .recordConstructor(ctorBuilder.build())
         .build();
+  }
+
+  private static TypeName resolveFieldJavaType(String targetPackage, TypeNode type) {
+    return switch (type) {
+      case IntegerTypeNode intType ->
+          intType.constraint() != null && intType.constraint().lowerBound() instanceof MinBound
+              ? TypeName.LONG : TypeName.INT;
+      case BooleanTypeNode ignored -> TypeName.BOOLEAN;
+      case Utf8StringTypeNode ignored -> STRING;
+      case OctetStringTypeNode ignored -> BYTE_ARRAY;
+      case BitStringTypeNode ignored -> BYTE_ARRAY;
+      case NullTypeNode ignored ->
+          throw new IllegalStateException("null type should have been skipped");
+      case Ia5StringTypeNode ignored -> STRING;
+      case VisibleStringTypeNode ignored -> STRING;
+      case SequenceTypeNode ignored ->
+          throw new IllegalArgumentException("nested SEQUENCE not supported in record generator");
+      case ChoiceTypeNode ignored ->
+          throw new IllegalArgumentException("nested CHOICE not supported in record generator");
+      case EnumeratedTypeNode ignored -> TypeName.INT;
+      case TypeReferenceNode ref -> ClassName.get(targetPackage, ref.typeName());
+    };
+  }
+
+  private static TypeSpec buildChoiceInterface(String targetPackage, String name,
+      ChoiceTypeNode choice) {
+    ClassName selfClassName = ClassName.get(targetPackage, name);
+    TypeSpec.Builder interfaceBuilder = TypeSpec.interfaceBuilder(name)
+        .addModifiers(Modifier.PUBLIC, Modifier.SEALED);
+    for (FieldNode alternative : choice.alternatives()) {
+      String variantName = CodegenUtils.toJavaClassName(alternative.name());
+      MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
+      if (!(alternative.type() instanceof NullTypeNode)) {
+        TypeName payloadType = resolveFieldJavaType(targetPackage, alternative.type());
+        ctorBuilder.addParameter(payloadType, "value");
+      }
+      interfaceBuilder.addType(TypeSpec.recordBuilder(variantName)
+          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+          .addSuperinterface(selfClassName)
+          .recordConstructor(ctorBuilder.build())
+          .build());
+    }
+    return interfaceBuilder.build();
   }
 
   private static TypeSpec buildIntegerWrapperRecord(String name) {

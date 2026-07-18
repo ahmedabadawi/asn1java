@@ -16,4 +16,9 @@ final class CodegenUtils {
     }
     return result.toString();
   }
+
+  static String toJavaClassName(String asn1Name) {
+    String fieldName = toJavaFieldName(asn1Name);
+    return Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+  }
 }

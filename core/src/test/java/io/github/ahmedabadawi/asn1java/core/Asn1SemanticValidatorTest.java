@@ -69,6 +69,47 @@ class Asn1SemanticValidatorTest {
   }
 
   @Test
+  void validate_WhenDuplicateAlternativeName_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Selection ::= CHOICE {
+                option BOOLEAN,
+                option INTEGER (0..MAX)
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly("Duplicate alternative name 'option' in type Selection");
+  }
+
+  @Test
+  void validate_WhenChoiceAlternativeReferencesUnknownType_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Selection ::= CHOICE {
+                option Missing
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly("Unknown type reference 'Missing' in field Selection.option");
+  }
+
+  @Test
   void validate_WhenConstraintBoundsInverted_ThenThrowsAsn1SemanticException() {
     // Given
     String invalid = """

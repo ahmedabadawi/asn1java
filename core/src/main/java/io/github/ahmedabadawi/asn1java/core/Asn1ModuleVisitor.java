@@ -2,6 +2,7 @@ package io.github.ahmedabadawi.asn1java.core;
 
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Bound;
+import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
@@ -46,6 +47,8 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     ParserRuleContext typeContext;
     if (context.sequenceType() != null) {
       typeContext = context.sequenceType();
+    } else if (context.choiceType() != null) {
+      typeContext = context.choiceType();
     } else if (context.enumeratedType() != null) {
       typeContext = context.enumeratedType();
     } else if (context.integerType() != null) {
@@ -80,6 +83,16 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       default -> throw new IllegalStateException("unexpected node for field: " + f.getText());
     }).toList();
     return new SequenceTypeNode(fields);
+  }
+
+  @Override
+  public ChoiceTypeNode visitChoiceType(ASN1Parser.ChoiceTypeContext context) {
+    List<FieldNode> alternatives =
+        context.fieldList().field().stream().map(f -> switch (visit(f)) {
+          case FieldNode n -> n;
+          default -> throw new IllegalStateException("unexpected node for field: " + f.getText());
+        }).toList();
+    return new ChoiceTypeNode(alternatives);
   }
 
   @Override

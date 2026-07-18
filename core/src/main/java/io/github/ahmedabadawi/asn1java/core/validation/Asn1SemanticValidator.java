@@ -1,6 +1,7 @@
 package io.github.ahmedabadawi.asn1java.core.validation;
 
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
@@ -16,6 +17,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SemanticException;
@@ -40,6 +42,7 @@ public class Asn1SemanticValidator {
     for (TypeAssignmentNode type : module.types()) {
       switch (type.type()) {
         case SequenceTypeNode seq -> checkSequence(type.name(), seq, definedTypeNames, errors);
+        case ChoiceTypeNode choice -> checkChoice(type.name(), choice, definedTypeNames, errors);
         case IntegerTypeNode it -> checkConstraint(type.name(), it.constraint(), errors);
         case BooleanTypeNode ignored -> {
         }
@@ -83,38 +86,53 @@ public class Asn1SemanticValidator {
         errors.add(
             new ValidationError("Duplicate field name '" + field.name() + "' in type " + typeName));
       }
-      switch (field.type()) {
-        case IntegerTypeNode it ->
-            checkConstraint(typeName + "." + field.name(), it.constraint(), errors);
-        case SequenceTypeNode st ->
-            checkSequence(typeName + "." + field.name(), st, definedTypeNames, errors);
-        case BooleanTypeNode ignored -> {
-        }
-        case Utf8StringTypeNode utf8Type ->
-            utf8Type.sizeConstraint().ifPresent(
-                c -> checkConstraint(typeName + "." + field.name(), c, errors));
-        case OctetStringTypeNode octetType ->
-            octetType.sizeConstraint().ifPresent(
-                c -> checkConstraint(typeName + "." + field.name(), c, errors));
-        case BitStringTypeNode bitType ->
-            bitType.sizeConstraint().ifPresent(
-                c -> checkConstraint(typeName + "." + field.name(), c, errors));
-        case NullTypeNode ignored -> {
-        }
-        case Ia5StringTypeNode ia5Type ->
-            ia5Type.sizeConstraint().ifPresent(
-                c -> checkConstraint(typeName + "." + field.name(), c, errors));
-        case VisibleStringTypeNode visibleType ->
-            visibleType.sizeConstraint().ifPresent(
-                c -> checkConstraint(typeName + "." + field.name(), c, errors));
-        case EnumeratedTypeNode enumType ->
-            checkEnumerated(typeName + "." + field.name(), enumType, errors);
-        case TypeReferenceNode ref -> {
-          if (!definedTypeNames.contains(ref.typeName())) {
-            errors.add(new ValidationError(
-                "Unknown type reference '%s' in field %s.%s"
-                    .formatted(ref.typeName(), typeName, field.name())));
-          }
+      checkFieldType(typeName + "." + field.name(), field.type(), definedTypeNames, errors);
+    }
+  }
+
+  private void checkChoice(String typeName, ChoiceTypeNode choice,
+      Set<String> definedTypeNames, List<ValidationError> errors) {
+    if (choice.alternatives().isEmpty()) {
+      errors.add(new ValidationError(
+          "CHOICE type at %s must have at least one alternative".formatted(typeName)));
+      return;
+    }
+    Set<String> seen = new HashSet<>();
+    for (FieldNode alternative : choice.alternatives()) {
+      if (!seen.add(alternative.name())) {
+        errors.add(new ValidationError(
+            "Duplicate alternative name '" + alternative.name() + "' in type " + typeName));
+      }
+      checkFieldType(typeName + "." + alternative.name(), alternative.type(), definedTypeNames,
+          errors);
+    }
+  }
+
+  private void checkFieldType(String location, TypeNode type, Set<String> definedTypeNames,
+      List<ValidationError> errors) {
+    switch (type) {
+      case IntegerTypeNode it -> checkConstraint(location, it.constraint(), errors);
+      case SequenceTypeNode st -> checkSequence(location, st, definedTypeNames, errors);
+      case ChoiceTypeNode choice -> checkChoice(location, choice, definedTypeNames, errors);
+      case BooleanTypeNode ignored -> {
+      }
+      case Utf8StringTypeNode utf8Type ->
+          utf8Type.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
+      case OctetStringTypeNode octetType ->
+          octetType.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
+      case BitStringTypeNode bitType ->
+          bitType.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
+      case NullTypeNode ignored -> {
+      }
+      case Ia5StringTypeNode ia5Type ->
+          ia5Type.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
+      case VisibleStringTypeNode visibleType ->
+          visibleType.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
+      case EnumeratedTypeNode enumType -> checkEnumerated(location, enumType, errors);
+      case TypeReferenceNode ref -> {
+        if (!definedTypeNames.contains(ref.typeName())) {
+          errors.add(new ValidationError(
+              "Unknown type reference '%s' in field %s".formatted(ref.typeName(), location)));
         }
       }
     }
