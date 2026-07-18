@@ -40,7 +40,15 @@ public class Asn1CodeGenPlugin extends AbstractMojo {
     project.addCompileSourceRoot(outputDirectory.getAbsolutePath());
 
     for (SpecFile specFile : specFiles) {
+      if (specFile.file == null) {
+        throw new MojoExecutionException("specFile is missing a required <file>");
+      }
       File file = specFile.file;
+      if (specFile.packageName == null && basePackage == null) {
+        throw new MojoExecutionException(
+            "%s has no packageName set and no basePackage is configured".formatted(file));
+      }
+
       getLog().info("Generating sources from: %s".formatted(file));
       String source;
       try {

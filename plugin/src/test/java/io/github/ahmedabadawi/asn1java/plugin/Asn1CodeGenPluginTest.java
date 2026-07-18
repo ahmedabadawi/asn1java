@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.monitor.logging.DefaultLog;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.logging.Logger;
@@ -46,7 +47,7 @@ class Asn1CodeGenPluginTest {
 
     var mojo = new Asn1CodeGenPlugin();
     mojo.specFiles = specFiles;
-    mojo.basePackage = new JavaPackage(basePackage);
+    mojo.basePackage = basePackage != null ? new JavaPackage(basePackage) : null;
     mojo.outputDirectory = outputDir;
     mojo.project =
         new MavenProject() {
@@ -163,6 +164,31 @@ class Asn1CodeGenPluginTest {
 
     assertThat(outputDir.toPath().resolve("io/example/versioninfo/Version.java")).exists();
     assertThat(outputDir.toPath().resolve("io/override/versioninfo/Version.java")).exists();
+  }
+
+  @Test
+  void execute_specFileMissingFile_throwsMojoExecutionException(@TempDir Path tmp) {
+    var outputDir = tmp.resolve("generated").toFile();
+    var spec = new SpecFile();
+
+    assertThatThrownBy(() -> mojo(List.of(spec), outputDir, "io.example", List.of()).execute())
+        .isInstanceOf(MojoExecutionException.class)
+        .hasMessageContaining("missing a required <file>");
+  }
+
+  @Test
+  void execute_noPackageNameAndNoBasePackage_throwsMojoExecutionException(@TempDir Path tmp)
+      throws Exception {
+    var specFile = tmp.resolve("simple.asn").toFile();
+    Files.writeString(specFile.toPath(), SIMPLE_ASN);
+    var outputDir = tmp.resolve("generated").toFile();
+    var spec = new SpecFile();
+    spec.file = specFile;
+
+    assertThatThrownBy(() -> mojo(List.of(spec), outputDir, null, List.of()).execute())
+        .isInstanceOf(MojoExecutionException.class)
+        .hasMessageContaining("no packageName set")
+        .hasMessageContaining("no basePackage is configured");
   }
 
   @Test
