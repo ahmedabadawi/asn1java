@@ -1,0 +1,28 @@
+VehicleModule
+
+DEFINITIONS
+  AUTOMATIC TAGS ::=
+BEGIN
+
+Vehicle ::= SEQUENCE {
+  id          INTEGER (0..65535),
+  propulsion  Propulsion
+}
+
+Propulsion ::= CHOICE {
+  gasoline    GasEngine,
+  electric    ElectricMotor,
+  none        NULL
+}
+
+GasEngine ::= SEQUENCE {
+  displacementCc  INTEGER (0..8000),
+  cylinders       INTEGER (1..16)
+}
+
+ElectricMotor ::= SEQUENCE {
+  powerKw     INTEGER (0..1000),
+  batteryKwh  INTEGER (0..500)
+}
+
+END
