@@ -422,6 +422,48 @@ Full `ProtocolVersion(1, 0)` encoding: `0100`
 
 ---
 
+## CHOICE — tagged union (§23)
+
+A CHOICE with N root alternatives and no extension marker encodes the zero-based index
+of the selected alternative as a constrained whole number in the range `0..(N-1)`
+(identical formula to ENUMERATED), immediately followed by the encoding of the selected
+alternative's value — with no tag, length prefix, or padding between the index and the
+payload. An alternative whose type is NULL contributes zero payload bits (per the NULL
+rule above); a SEQUENCE-typed alternative encodes exactly as that SEQUENCE would as a
+standalone value (per the Type Reference / SEQUENCE rules above).
+
+**Steps:**
+1. `index` = zero-based position of the selected alternative in declaration order
+2. `range = N − 1`
+3. `bit_count = 32 − Integer.numberOfLeadingZeros(range)` (0 if N ≤ 1)
+4. Write `index` in exactly `bit_count` bits, MSB first
+5. Encode the selected alternative's value using that alternative's own type rules,
+   immediately following the index bits (no padding)
+
+**Example** (`Propulsion ::= CHOICE { gasoline GasEngine, electric ElectricMotor, none NULL }`,
+N=3, range=2, bit_count=2):
+
+| alternative | index | index bits |
+|-------------|-------|------------|
+| gasoline    | 0     | `00`       |
+| electric    | 1     | `01`       |
+| none        | 2     | `10`       |
+
+For `none`, the encoding is just the 2 index bits (`10`) — NULL contributes nothing
+further. For `gasoline`/`electric`, the 2 index bits are followed immediately by the
+chosen `GasEngine`/`ElectricMotor` SEQUENCE's own field encoding, with no gap.
+
+**`Vehicle` SEQUENCE encoding** (`id INTEGER (0..65535), propulsion Propulsion`, where
+`GasEngine ::= SEQUENCE { displacementCc INTEGER (0..8000), cylinders INTEGER (1..16) }`
+and `ElectricMotor ::= SEQUENCE { powerKw INTEGER (0..1000), batteryKwh INTEGER (0..500) }`):
+
+`id` is a 16-bit constrained whole number (range 65535). The `propulsion` field is the
+2-bit CHOICE index followed by the selected alternative's own field bits — see
+`golden-tests/vehicle/*.hex` for exact byte-level values verified against the
+`asn1tools` oracle.
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
