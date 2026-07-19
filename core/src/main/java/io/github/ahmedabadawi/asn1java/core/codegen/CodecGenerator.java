@@ -6,6 +6,7 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanDefaultValueNode;
@@ -26,6 +27,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceOfTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
@@ -48,6 +50,7 @@ final class CodecGenerator {
   private static final ClassName UPER_CODEC_SUPPORT =
       ClassName.get(RUNTIME_PKG, "UperCodecSupport");
   private static final ClassName STRING = ClassName.get("java.lang", "String");
+  private static final ClassName LIST = ClassName.get("java.util", "List");
   private static final ArrayTypeName BYTE_ARRAY = ArrayTypeName.of(TypeName.BYTE);
 
   private CodecGenerator() {
@@ -280,6 +283,25 @@ final class CodecGenerator {
       addOptionalGuardedChecks(methodBuilder, field, checks.build());
     } else if (field.encoding() == Encoding.TYPE_REFERENCE) {
       addNullableFieldChecks(methodBuilder, field, CodeBlock.of(""));
+    } else if (field.encoding() == Encoding.SEQUENCE_OF) {
+      CodeBlock.Builder checks = CodeBlock.builder();
+      if (field.upperBound() != Long.MAX_VALUE) {
+        if (field.bitCount() == 0) {
+          checks.beginControlFlow("if ($N.size() != $L)", field.name(), field.lowerBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " must have exactly " + field.lowerBound() + " elements")
+              .endControlFlow();
+        } else {
+          checks.beginControlFlow("if ($N.size() < $L || $N.size() > $L)", field.name(),
+                  field.lowerBound(), field.name(), (int) field.upperBound())
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  field.name() + " must have between " + field.lowerBound() + " and "
+                      + (int) field.upperBound() + " elements")
+              .endControlFlow();
+        }
+      }
+      addNullableFieldChecks(methodBuilder, field, checks.build());
+      addElementValidation(methodBuilder, field);
     } else if (field.encoding() != Encoding.BOOLEAN) {
       CodeBlock.Builder checks = CodeBlock.builder();
       checks.beginControlFlow("if ($N < $L)", field.name(), field.lowerBound())
@@ -322,6 +344,43 @@ final class CodecGenerator {
     }
   }
 
+  // Reference-typed elements (TYPE_REFERENCE) validate themselves via their own record's
+  // compact constructor when each element was built, so no extra loop is needed for them.
+  // Nested SEQUENCE_OF/BOOLEAN/ZERO_RANGE elements have no meaningful per-element bound to
+  // check here either (BOOLEAN has no constraint; ZERO_RANGE is fully determined).
+  private static void addElementValidation(MethodSpec.Builder methodBuilder, EncodedField field) {
+    EncodedField elementField = field.elementField();
+    if (elementField.encoding() == Encoding.TYPE_REFERENCE
+        || elementField.encoding() == Encoding.SEQUENCE_OF
+        || elementField.encoding() == Encoding.BOOLEAN
+        || elementField.encoding() == Encoding.ZERO_RANGE) {
+      return;
+    }
+    if (field.optional()) {
+      methodBuilder.beginControlFlow("if ($N != null)", field.name());
+    }
+    TypeName elementType = primitiveElementJavaType(elementField.encoding());
+    methodBuilder.beginControlFlow("for ($T $N : $N)", elementType, elementField.name(),
+        field.name());
+    addFieldValidation(methodBuilder, elementField);
+    methodBuilder.endControlFlow();
+    if (field.optional()) {
+      methodBuilder.endControlFlow();
+    }
+  }
+
+  private static TypeName primitiveElementJavaType(Encoding encoding) {
+    return switch (encoding) {
+      case SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, ENUMERATED -> TypeName.INT;
+      case UNCONSTRAINED -> TypeName.LONG;
+      case BOOLEAN -> TypeName.BOOLEAN;
+      case UTF8_STRING, IA5_STRING, VISIBLE_STRING -> STRING;
+      case OCTET_STRING, BIT_STRING -> BYTE_ARRAY;
+      case TYPE_REFERENCE, SEQUENCE_OF -> throw new IllegalStateException(
+          "not a primitive element encoding: " + encoding);
+    };
+  }
+
   private static MethodSpec buildDecodeMethod(ClassName modelClass, List<EncodedField> fields,
       String targetPackage) {
     return MethodSpec.methodBuilder("decode")
@@ -354,53 +413,61 @@ final class CodecGenerator {
     if (field.optional() || field.hasDefault()) {
       builder.beginControlFlow("if ($L)", presenceCondition(field));
     }
-    switch (field.encoding()) {
-      case SEMI_CONSTRAINED -> {
-        if (field.lowerBound() == 0) {
-          builder.addStatement("$T.encodeSemiConstrainedInt(out, model.$N())",
-              UPER_CODEC_SUPPORT, field.name());
-        } else {
-          builder.addStatement("$T.encodeSemiConstrainedInt(out, model.$N() - $L)",
-              UPER_CODEC_SUPPORT, field.name(), field.lowerBound());
-        }
-      }
-      case CONSTRAINED -> {
-        if (field.lowerBound() == 0) {
-          builder.addStatement("out.writeBits(model.$N(), $L)", field.name(), field.bitCount());
-        } else {
-          builder.addStatement("out.writeBits(model.$N() - $L, $L)",
-              field.name(), field.lowerBound(), field.bitCount());
-        }
-      }
-      case ZERO_RANGE -> { /* nothing to encode */ }
-      case UNCONSTRAINED -> builder.addStatement("$T.encodeUnconstrainedInt(out, model.$N())",
-          UPER_CODEC_SUPPORT, field.name());
-      case OCTET_STRING -> {
-        if (field.bitCount() == 0) {
-          builder.addStatement("$T.encodeFixedOctetString(out, model.$N())",
-              UPER_CODEC_SUPPORT, field.name());
-        } else {
-          builder.addStatement("$T.encodeOctetString(out, model.$N(), $L, $L)",
-              UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
-        }
-      }
-      case BIT_STRING -> builder.addStatement("$T.encodeBitString(out, model.$N(), $L)",
-          UPER_CODEC_SUPPORT, field.name(), field.lowerBound());
-      case IA5_STRING -> builder.addStatement("$T.encodeIa5String(out, model.$N(), $L, $L)",
-          UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
-      case VISIBLE_STRING -> builder.addStatement("$T.encodeVisibleString(out, model.$N(), $L, $L)",
-          UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), (int) field.upperBound());
-      case BOOLEAN -> builder.addStatement("out.writeBits(model.$N() ? 1 : 0, 1)", field.name());
-      case UTF8_STRING -> builder.addStatement("$T.encodeUtf8String(out, model.$N())",
-          UPER_CODEC_SUPPORT, field.name());
-      case ENUMERATED -> builder.addStatement("out.writeBits(model.$N(), $L)",
-          field.name(), field.bitCount());
-      case TYPE_REFERENCE -> builder.addStatement("new $T().encodeInto(out, model.$N())",
-          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), field.name());
+    if (field.encoding() == Encoding.SEQUENCE_OF) {
+      EncodedField elementField = field.elementField();
+      TypeName elementType = elementJavaType(elementField, targetPackage);
+      CodeBlock elementExpr =
+          encodeExpression(elementField, targetPackage, CodeBlock.of("item"), "stream");
+      builder.addStatement(
+          "$T.encodeSequenceOf(out, model.$N(), $L, $LL, ($T stream, $T item) -> $L)",
+          UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), field.upperBound(),
+          UPER_OUTPUT_STREAM, elementType, elementExpr);
+    } else if (field.encoding() != Encoding.ZERO_RANGE) {
+      builder.addStatement(
+          encodeExpression(field, targetPackage, CodeBlock.of("model.$N()", field.name()), "out"));
     }
     if (field.optional() || field.hasDefault()) {
       builder.endControlFlow();
     }
+  }
+
+  private static CodeBlock encodeExpression(EncodedField field, String targetPackage,
+      CodeBlock valueExpr, String streamVar) {
+    return switch (field.encoding()) {
+      case SEMI_CONSTRAINED -> field.lowerBound() == 0
+          ? CodeBlock.of("$T.encodeSemiConstrainedInt($L, $L)", UPER_CODEC_SUPPORT, streamVar,
+              valueExpr)
+          : CodeBlock.of("$T.encodeSemiConstrainedInt($L, $L - $L)", UPER_CODEC_SUPPORT, streamVar,
+              valueExpr, field.lowerBound());
+      case CONSTRAINED -> field.lowerBound() == 0
+          ? CodeBlock.of("$L.writeBits($L, $L)", streamVar, valueExpr, field.bitCount())
+          : CodeBlock.of("$L.writeBits($L - $L, $L)", streamVar, valueExpr, field.lowerBound(),
+              field.bitCount());
+      case ZERO_RANGE -> CodeBlock.of("");
+      case UNCONSTRAINED -> CodeBlock.of("$T.encodeUnconstrainedInt($L, $L)", UPER_CODEC_SUPPORT,
+          streamVar, valueExpr);
+      case OCTET_STRING -> field.bitCount() == 0
+          ? CodeBlock.of("$T.encodeFixedOctetString($L, $L)", UPER_CODEC_SUPPORT, streamVar,
+              valueExpr)
+          : CodeBlock.of("$T.encodeOctetString($L, $L, $L, $L)", UPER_CODEC_SUPPORT, streamVar,
+              valueExpr, field.lowerBound(), (int) field.upperBound());
+      case BIT_STRING -> CodeBlock.of("$T.encodeBitString($L, $L, $L)", UPER_CODEC_SUPPORT,
+          streamVar, valueExpr, field.lowerBound());
+      case IA5_STRING -> CodeBlock.of("$T.encodeIa5String($L, $L, $L, $L)", UPER_CODEC_SUPPORT,
+          streamVar, valueExpr, field.lowerBound(), (int) field.upperBound());
+      case VISIBLE_STRING -> CodeBlock.of("$T.encodeVisibleString($L, $L, $L, $L)",
+          UPER_CODEC_SUPPORT, streamVar, valueExpr, field.lowerBound(), (int) field.upperBound());
+      case BOOLEAN -> CodeBlock.of("$L.writeBits($L ? 1 : 0, 1)", streamVar, valueExpr);
+      case UTF8_STRING -> CodeBlock.of("$T.encodeUtf8String($L, $L)", UPER_CODEC_SUPPORT,
+          streamVar, valueExpr);
+      case ENUMERATED -> CodeBlock.of("$L.writeBits($L, $L)", streamVar, valueExpr,
+          field.bitCount());
+      case TYPE_REFERENCE -> CodeBlock.of("new $T().encodeInto($L, $L)",
+          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), streamVar,
+          valueExpr);
+      case SEQUENCE_OF -> throw new IllegalArgumentException(
+          "nested SEQUENCE OF element not supported");
+    };
   }
 
   private static void addDecodeStatement(MethodSpec.Builder builder, EncodedField field,
@@ -455,7 +522,64 @@ final class CodecGenerator {
       case TYPE_REFERENCE -> addDecodeAssignment(builder, field,
           ClassName.get(targetPackage, field.referencedTypeName()), "new $T().decodeFrom(in)",
           ClassName.get(targetPackage, field.referencedTypeName() + "Codec"));
+      case SEQUENCE_OF -> {
+        EncodedField elementField = field.elementField();
+        TypeName elementType = elementJavaType(elementField, targetPackage);
+        TypeName listType = ParameterizedTypeName.get(LIST, elementType.box());
+        CodeBlock elementExpr = decodeExpression(elementField, targetPackage, "elementIn");
+        addDecodeAssignment(builder, field, listType,
+            "$T.decodeSequenceOf(in, $L, $LL, ($T elementIn) -> $L)", UPER_CODEC_SUPPORT,
+            field.lowerBound(), field.upperBound(), UPER_INPUT_STREAM, elementExpr);
+      }
     }
+  }
+
+  private static CodeBlock decodeExpression(EncodedField field, String targetPackage,
+      String streamVar) {
+    return switch (field.encoding()) {
+      case SEMI_CONSTRAINED -> field.lowerBound() == 0
+          ? CodeBlock.of("(int) $T.decodeSemiConstrainedInt($L)", UPER_CODEC_SUPPORT, streamVar)
+          : CodeBlock.of("(int) $T.decodeSemiConstrainedInt($L) + $L", UPER_CODEC_SUPPORT,
+              streamVar, field.lowerBound());
+      case CONSTRAINED -> field.lowerBound() == 0
+          ? CodeBlock.of("(int) $L.readBits($L)", streamVar, field.bitCount())
+          : CodeBlock.of("(int) $L.readBits($L) + $L", streamVar, field.bitCount(),
+              field.lowerBound());
+      case ZERO_RANGE -> CodeBlock.of("$L", field.lowerBound());
+      case UNCONSTRAINED -> CodeBlock.of("$T.decodeUnconstrainedInt($L)", UPER_CODEC_SUPPORT,
+          streamVar);
+      case OCTET_STRING -> field.bitCount() == 0
+          ? CodeBlock.of("$T.decodeFixedOctetString($L, $L)", UPER_CODEC_SUPPORT, streamVar,
+              field.lowerBound())
+          : CodeBlock.of("$T.decodeOctetString($L, $L, $L)", UPER_CODEC_SUPPORT, streamVar,
+              field.lowerBound(), (int) field.upperBound());
+      case BIT_STRING -> CodeBlock.of("$T.decodeBitString($L, $L)", UPER_CODEC_SUPPORT, streamVar,
+          field.lowerBound());
+      case IA5_STRING -> CodeBlock.of("$T.decodeIa5String($L, $L, $L)", UPER_CODEC_SUPPORT,
+          streamVar, field.lowerBound(), (int) field.upperBound());
+      case VISIBLE_STRING -> CodeBlock.of("$T.decodeVisibleString($L, $L, $L)", UPER_CODEC_SUPPORT,
+          streamVar, field.lowerBound(), (int) field.upperBound());
+      case BOOLEAN -> CodeBlock.of("$L.readBits(1) != 0", streamVar);
+      case UTF8_STRING -> CodeBlock.of("$T.decodeUtf8String($L)", UPER_CODEC_SUPPORT, streamVar);
+      case ENUMERATED -> CodeBlock.of("(int) $L.readBits($L)", streamVar, field.bitCount());
+      case TYPE_REFERENCE -> CodeBlock.of("new $T().decodeFrom($L)",
+          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), streamVar);
+      case SEQUENCE_OF -> throw new IllegalArgumentException(
+          "nested SEQUENCE OF element not supported");
+    };
+  }
+
+  private static TypeName elementJavaType(EncodedField elementField, String targetPackage) {
+    return switch (elementField.encoding()) {
+      case SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, ENUMERATED -> TypeName.INT;
+      case UNCONSTRAINED -> TypeName.LONG;
+      case BOOLEAN -> TypeName.BOOLEAN;
+      case UTF8_STRING, IA5_STRING, VISIBLE_STRING -> STRING;
+      case OCTET_STRING, BIT_STRING -> BYTE_ARRAY;
+      case TYPE_REFERENCE -> ClassName.get(targetPackage, elementField.referencedTypeName());
+      case SEQUENCE_OF -> ParameterizedTypeName.get(LIST,
+          elementJavaType(elementField.elementField(), targetPackage).box());
+    };
   }
 
   private static void addDecodeAssignment(MethodSpec.Builder builder, EncodedField field,
@@ -501,25 +625,7 @@ final class CodecGenerator {
           .filter(field -> !(field.type() instanceof NullTypeNode))
           .map(field -> {
             String javaName = CodegenUtils.toJavaFieldName(field.name());
-            EncodedField encoded = switch (field.type()) {
-              case IntegerTypeNode intType -> toEncodedField(javaName, intType);
-              case BooleanTypeNode ignored -> new EncodedField(javaName, 0, Encoding.BOOLEAN, 1);
-              case Utf8StringTypeNode utf8Type -> toEncodedField(javaName, utf8Type);
-              case OctetStringTypeNode octetType -> toEncodedField(javaName, octetType);
-              case BitStringTypeNode bitType -> toEncodedField(javaName, bitType);
-              case NullTypeNode ignored ->
-                  throw new IllegalStateException("null type should have been filtered");
-              case Ia5StringTypeNode ia5Type -> toEncodedField(javaName, ia5Type);
-              case VisibleStringTypeNode visibleType -> toEncodedField(javaName, visibleType);
-              case SequenceTypeNode ignored ->
-                  throw new IllegalArgumentException("nested SEQUENCE not supported");
-              case ChoiceTypeNode ignored ->
-                  throw new IllegalArgumentException("nested CHOICE not supported");
-              case EnumeratedTypeNode enumType -> toEncodedField(javaName, enumType);
-              case TypeReferenceNode ref ->
-                  new EncodedField(javaName, 0, Encoding.TYPE_REFERENCE, 0, Long.MAX_VALUE,
-                      ref.typeName());
-            };
+            EncodedField encoded = toEncodedField(javaName, field.type());
             if (field.optional()) {
               return encoded.withOptional(true);
             }
@@ -539,10 +645,47 @@ final class CodecGenerator {
       case Ia5StringTypeNode ia5Type -> List.of(toEncodedField("value", ia5Type));
       case VisibleStringTypeNode visibleType -> List.of(toEncodedField("value", visibleType));
       case EnumeratedTypeNode enumType -> List.of(toEncodedField("value", enumType));
+      case SequenceOfTypeNode sequenceOfType -> List.of(toEncodedField("value", sequenceOfType));
       case TypeReferenceNode ignored ->
           throw new IllegalArgumentException(
               "top-level TypeReferenceNode is not a valid type assignment body");
     };
+  }
+
+  private static EncodedField toEncodedField(String javaName, TypeNode type) {
+    return switch (type) {
+      case IntegerTypeNode intType -> toEncodedField(javaName, intType);
+      case BooleanTypeNode ignored -> new EncodedField(javaName, 0, Encoding.BOOLEAN, 1);
+      case Utf8StringTypeNode utf8Type -> toEncodedField(javaName, utf8Type);
+      case OctetStringTypeNode octetType -> toEncodedField(javaName, octetType);
+      case BitStringTypeNode bitType -> toEncodedField(javaName, bitType);
+      case NullTypeNode ignored ->
+          throw new IllegalArgumentException("SEQUENCE OF NULL element is not supported");
+      case Ia5StringTypeNode ia5Type -> toEncodedField(javaName, ia5Type);
+      case VisibleStringTypeNode visibleType -> toEncodedField(javaName, visibleType);
+      case SequenceTypeNode ignored ->
+          throw new IllegalArgumentException("nested SEQUENCE not supported");
+      case ChoiceTypeNode ignored ->
+          throw new IllegalArgumentException("nested CHOICE not supported");
+      case EnumeratedTypeNode enumType -> toEncodedField(javaName, enumType);
+      case SequenceOfTypeNode sequenceOfType -> toEncodedField(javaName, sequenceOfType);
+      case TypeReferenceNode ref ->
+          new EncodedField(javaName, 0, Encoding.TYPE_REFERENCE, 0, Long.MAX_VALUE,
+              ref.typeName());
+    };
+  }
+
+  private static EncodedField toEncodedField(String name, SequenceOfTypeNode sequenceOfType) {
+    EncodedField elementField = toEncodedField(name + "Element", sequenceOfType.elementType());
+    if (sequenceOfType.sizeConstraint().isEmpty()) {
+      return new EncodedField(name, 0, Encoding.SEQUENCE_OF, 0, Long.MAX_VALUE, elementField);
+    }
+    ConstraintNode size = sequenceOfType.sizeConstraint().get();
+    int lb = ((NumberBound) size.lowerBound()).value();
+    int ub = ((NumberBound) size.upperBound()).value();
+    int range = ub - lb;
+    int bitCount = range == 0 ? 0 : Integer.SIZE - Integer.numberOfLeadingZeros(range);
+    return new EncodedField(name, lb, Encoding.SEQUENCE_OF, bitCount, ub, elementField);
   }
 
   private static EncodedField toEncodedField(String name, Ia5StringTypeNode ia5Type) {
@@ -654,39 +797,46 @@ final class CodecGenerator {
 
   enum Encoding {
     SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED,
-    OCTET_STRING, BIT_STRING, IA5_STRING, VISIBLE_STRING, TYPE_REFERENCE
+    OCTET_STRING, BIT_STRING, IA5_STRING, VISIBLE_STRING, TYPE_REFERENCE, SEQUENCE_OF
   }
 
   record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
       long upperBound, String referencedTypeName, boolean optional, boolean hasDefault,
-      long defaultValue, String defaultStringValue) {
+      long defaultValue, String defaultStringValue, EncodedField elementField) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
-      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false, false, 0, null);
+      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false, false, 0, null,
+          null);
     }
 
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
-      this(name, lowerBound, encoding, bitCount, upperBound, null, false, false, 0, null);
+      this(name, lowerBound, encoding, bitCount, upperBound, null, false, false, 0, null, null);
     }
 
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound,
         String referencedTypeName) {
       this(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName, false, false, 0,
-          null);
+          null, null);
+    }
+
+    EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound,
+        EncodedField elementField) {
+      this(name, lowerBound, encoding, bitCount, upperBound, null, false, false, 0, null,
+          elementField);
     }
 
     EncodedField withOptional(boolean optionalValue) {
       return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
-          optionalValue, hasDefault, defaultValue, defaultStringValue);
+          optionalValue, hasDefault, defaultValue, defaultStringValue, elementField);
     }
 
     EncodedField withDefault(long defaultValueArg) {
       return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
-          optional, true, defaultValueArg, null);
+          optional, true, defaultValueArg, null, elementField);
     }
 
     EncodedField withStringDefault(String defaultStringValueArg) {
       return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
-          optional, true, 0, defaultStringValueArg);
+          optional, true, 0, defaultStringValueArg, elementField);
     }
   }
 }
