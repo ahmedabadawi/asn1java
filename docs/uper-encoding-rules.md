@@ -623,6 +623,31 @@ values verified against the `asn1tools` oracle.
 
 ---
 
+## Value assignments — named constants (no wire-format impact)
+
+A module-level value assignment (e.g. `maxVolume INTEGER ::= 100`) declares a
+named constant that may be used afterward in place of a literal number in any
+constraint bound — an INTEGER range (`INTEGER (0..maxVolume)`) or a SIZE
+constraint (`SEQUENCE (SIZE (0..maxTags)) OF UTF8String`).
+
+This is a **compile-time substitution only** — it has no effect whatsoever on the
+UPER bit-level encoding. `INTEGER (0..maxVolume)` where `maxVolume INTEGER ::= 100`
+encodes byte-identically to `INTEGER (0..100)` written directly: same range, same
+`bit_count`, same offset formula. The name is resolved to its literal value before
+any encoding decision is made; nothing downstream of parsing is aware a named
+constant was ever used.
+
+**`Settings` SEQUENCE encoding** (`maxVolume INTEGER ::= 100`, `maxTags INTEGER ::=
+10`, `Settings ::= SEQUENCE { volume INTEGER (0..maxVolume), tags SEQUENCE (SIZE
+(0..maxTags)) OF UTF8String }`): `volume` is an ordinary 7-bit constrained whole
+number (range 100, bit_count = 7); `tags` is an ordinary range-constrained
+SEQUENCE OF (range 10, bit_count = 4) of unconstrained UTF8String elements — see
+the SEQUENCE OF and INTEGER (lb..ub) sections above for the algorithms themselves.
+See `golden-tests/limits/*.hex` for exact byte-level values verified against the
+`asn1tools` oracle.
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
