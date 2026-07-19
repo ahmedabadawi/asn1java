@@ -1,0 +1,11 @@
+LimitsModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    maxVolume INTEGER ::= 100
+    maxTags   INTEGER ::= 10
+
+    Settings ::= SEQUENCE {
+        volume INTEGER (0..maxVolume),
+        tags   SEQUENCE (SIZE (0..maxTags)) OF UTF8String
+    }
+
+END

@@ -67,6 +67,7 @@
                         <specFile><file>${project.basedir}/src/main/asn1/settings.asn</file></specFile>
                         <specFile><file>${project.basedir}/src/main/asn1/profile.asn</file></specFile>
                         <specFile><file>${project.basedir}/src/main/asn1/playlist.asn</file></specFile>
+                        <specFile><file>${project.basedir}/src/main/asn1/limits.asn</file></specFile>
                     </specFiles>
                     <basePackage>io.github.ahmedabadawi.asn1java.sample</basePackage>
                 </configuration>
