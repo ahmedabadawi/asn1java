@@ -523,7 +523,7 @@ final class CodecGenerator {
           case NumberBound numberBound -> {
             int range = numberBound.value() - lb;
             if (range == 0) {
-              yield new EncodedField(name, lb, Encoding.ZERO_RANGE, 0);
+              yield new EncodedField(name, lb, Encoding.ZERO_RANGE, 0, lb);
             }
             int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
             yield new EncodedField(name, lb, Encoding.CONSTRAINED, bitCount);

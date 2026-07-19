@@ -156,6 +156,18 @@ class Asn1CodeGeneratorTest {
   }
 
   @Test
+  void generate_zeroRangeField_emitsEqualityValidation() {
+    // INTEGER (5..5): lb=ub=5, nothing is written on the wire but the value must equal 5
+    var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
+        List.of(new FieldNode("x",
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(5), new NumberBound(5)))))))));
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
+    String model = findFile(files, "record Foo").toString();
+    assertThat(model).contains("must be >= 5");
+    assertThat(model).contains("must be <= 5");
+  }
+
+  @Test
   void generate_utf8StringFieldInSequence_producesJavaStringType() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
         new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
