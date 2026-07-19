@@ -166,98 +166,103 @@ final class CodecGenerator {
         .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
         .addParameter(ParameterSpec.builder(modelClass, "model").build());
 
-    for (EncodedField field : fields) {
-      if (field.encoding() == Encoding.UTF8_STRING) {
-        methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
-            .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                field.name() + " must not be null")
-            .endControlFlow();
-        if (field.lowerBound() > 0) {
-          methodBuilder.beginControlFlow(
-                  "if (model.$N().getBytes($T.UTF_8).length < $L)",
-                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
-                  field.lowerBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " length must be >= " + field.lowerBound())
-              .endControlFlow();
-        }
-        if (field.upperBound() != Long.MAX_VALUE) {
-          methodBuilder.beginControlFlow(
-                  "if (model.$N().getBytes($T.UTF_8).length > $L)",
-                  field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
-                  (int) field.upperBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " length must be <= " + (int) field.upperBound())
-              .endControlFlow();
-        }
-      } else if (field.encoding() == Encoding.IA5_STRING
-          || field.encoding() == Encoding.VISIBLE_STRING) {
-        methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
-            .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                field.name() + " must not be null")
-            .endControlFlow();
-        if (field.lowerBound() > 0) {
-          methodBuilder.beginControlFlow("if (model.$N().length() < $L)",
-                  field.name(), field.lowerBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " length must be >= " + field.lowerBound())
-              .endControlFlow();
-        }
-        if (field.upperBound() != Long.MAX_VALUE) {
-          methodBuilder.beginControlFlow("if (model.$N().length() > $L)",
-                  field.name(), (int) field.upperBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " length must be <= " + (int) field.upperBound())
-              .endControlFlow();
-        }
-      } else if (field.encoding() == Encoding.BIT_STRING) {
-        methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
-            .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                field.name() + " must not be null")
-            .endControlFlow();
-        if (field.bitCount() == 0 && field.lowerBound() > 0) {
-          methodBuilder.beginControlFlow(
-                  "if (model.$N().length * 8 != $L)", field.name(), field.lowerBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " must be exactly " + field.lowerBound() + " bits")
-              .endControlFlow();
-        }
-      } else if (field.encoding() == Encoding.OCTET_STRING) {
-        methodBuilder.beginControlFlow("if (model.$N() == null)", field.name())
-            .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                field.name() + " must not be null")
-            .endControlFlow();
-        if (field.lowerBound() > 0) {
-          methodBuilder.beginControlFlow("if (model.$N().length < $L)",
-                  field.name(), field.lowerBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " length must be >= " + field.lowerBound())
-              .endControlFlow();
-        }
-        if (field.upperBound() != Long.MAX_VALUE) {
-          methodBuilder.beginControlFlow("if (model.$N().length > $L)",
-                  field.name(), (int) field.upperBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " length must be <= " + (int) field.upperBound())
-              .endControlFlow();
-        }
-      } else if (field.encoding() == Encoding.UNCONSTRAINED) {
-        if (field.upperBound() != Long.MAX_VALUE) {
-          methodBuilder.beginControlFlow("if (model.$N() > $LL)", field.name(), field.upperBound())
-              .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                  field.name() + " must be <= " + field.upperBound())
-              .endControlFlow();
-        }
-      } else if (field.encoding() != Encoding.BOOLEAN && field.encoding() != Encoding.TYPE_REFERENCE) {
-        methodBuilder.beginControlFlow("if (model.$N() < $L)", field.name(), field.lowerBound())
-            .addStatement("throw new $T($S)", IllegalArgumentException.class,
-                field.name() + " must be >= " + field.lowerBound())
-            .endControlFlow();
-      }
-    }
-
     fields.forEach(field -> addEncodeStatement(methodBuilder, field, targetPackage));
     return methodBuilder.build();
+  }
+
+  static void addFieldValidation(MethodSpec.Builder methodBuilder, EncodedField field) {
+    if (field.encoding() == Encoding.UTF8_STRING) {
+      methodBuilder.beginControlFlow("if ($N == null)", field.name())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must not be null")
+          .endControlFlow();
+      if (field.lowerBound() > 0) {
+        methodBuilder.beginControlFlow(
+                "if ($N.getBytes($T.UTF_8).length < $L)",
+                field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
+                field.lowerBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " length must be >= " + field.lowerBound())
+            .endControlFlow();
+      }
+      if (field.upperBound() != Long.MAX_VALUE) {
+        methodBuilder.beginControlFlow(
+                "if ($N.getBytes($T.UTF_8).length > $L)",
+                field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
+                (int) field.upperBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " length must be <= " + (int) field.upperBound())
+            .endControlFlow();
+      }
+    } else if (field.encoding() == Encoding.IA5_STRING
+        || field.encoding() == Encoding.VISIBLE_STRING) {
+      methodBuilder.beginControlFlow("if ($N == null)", field.name())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must not be null")
+          .endControlFlow();
+      if (field.lowerBound() > 0) {
+        methodBuilder.beginControlFlow("if ($N.length() < $L)",
+                field.name(), field.lowerBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " length must be >= " + field.lowerBound())
+            .endControlFlow();
+      }
+      if (field.upperBound() != Long.MAX_VALUE) {
+        methodBuilder.beginControlFlow("if ($N.length() > $L)",
+                field.name(), (int) field.upperBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " length must be <= " + (int) field.upperBound())
+            .endControlFlow();
+      }
+    } else if (field.encoding() == Encoding.BIT_STRING) {
+      methodBuilder.beginControlFlow("if ($N == null)", field.name())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must not be null")
+          .endControlFlow();
+      if (field.bitCount() == 0 && field.lowerBound() > 0) {
+        methodBuilder.beginControlFlow(
+                "if ($N.length * 8 != $L)", field.name(), field.lowerBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " must be exactly " + field.lowerBound() + " bits")
+            .endControlFlow();
+      }
+    } else if (field.encoding() == Encoding.OCTET_STRING) {
+      methodBuilder.beginControlFlow("if ($N == null)", field.name())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must not be null")
+          .endControlFlow();
+      if (field.lowerBound() > 0) {
+        methodBuilder.beginControlFlow("if ($N.length < $L)",
+                field.name(), field.lowerBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " length must be >= " + field.lowerBound())
+            .endControlFlow();
+      }
+      if (field.upperBound() != Long.MAX_VALUE) {
+        methodBuilder.beginControlFlow("if ($N.length > $L)",
+                field.name(), (int) field.upperBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " length must be <= " + (int) field.upperBound())
+            .endControlFlow();
+      }
+    } else if (field.encoding() == Encoding.UNCONSTRAINED) {
+      if (field.upperBound() != Long.MAX_VALUE) {
+        methodBuilder.beginControlFlow("if ($N > $LL)", field.name(), field.upperBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " must be <= " + field.upperBound())
+            .endControlFlow();
+      }
+    } else if (field.encoding() == Encoding.TYPE_REFERENCE) {
+      methodBuilder.beginControlFlow("if ($N == null)", field.name())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must not be null")
+          .endControlFlow();
+    } else if (field.encoding() != Encoding.BOOLEAN) {
+      methodBuilder.beginControlFlow("if ($N < $L)", field.name(), field.lowerBound())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must be >= " + field.lowerBound())
+          .endControlFlow();
+    }
   }
 
   private static MethodSpec buildDecodeMethod(ClassName modelClass, List<EncodedField> fields,
@@ -385,7 +390,7 @@ final class CodecGenerator {
     }
   }
 
-  private static List<EncodedField> collectFields(TypeAssignmentNode typeAssignment) {
+  static List<EncodedField> collectFields(TypeAssignmentNode typeAssignment) {
     return switch (typeAssignment.type()) {
       case SequenceTypeNode seq -> seq.fields()
           .stream()
@@ -527,12 +532,12 @@ final class CodecGenerator {
     };
   }
 
-  private enum Encoding {
+  enum Encoding {
     SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, BOOLEAN, UTF8_STRING, ENUMERATED, UNCONSTRAINED,
     OCTET_STRING, BIT_STRING, IA5_STRING, VISIBLE_STRING, TYPE_REFERENCE
   }
 
-  private record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
+  record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
       long upperBound, String referencedTypeName) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
       this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null);

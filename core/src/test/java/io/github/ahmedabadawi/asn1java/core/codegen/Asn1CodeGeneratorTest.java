@@ -76,11 +76,11 @@ class Asn1CodeGeneratorTest {
   }
 
   @Test
-  void generate_codecFile_containsLowerBoundValidation() {
+  void generate_modelFile_containsLowerBoundValidation() {
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(versionInfoModule());
-    String codec = findFile(files, "VersionCodec").toString();
-    assertThat(codec).contains("< 0");
-    assertThat(codec).contains("IllegalArgumentException");
+    String model = findFile(files, "record Version").toString();
+    assertThat(model).contains("< 0");
+    assertThat(model).contains("IllegalArgumentException");
   }
 
   @Test
@@ -179,9 +179,9 @@ class Asn1CodeGeneratorTest {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
         new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
-    String codec = findFile(files, "PersonCodec").toString();
-    assertThat(codec).contains("== null");
-    assertThat(codec).contains("must not be null");
+    String model = findFile(files, "record Person").toString();
+    assertThat(model).contains("== null");
+    assertThat(model).contains("must not be null");
   }
 
   @Test
@@ -213,9 +213,9 @@ class Asn1CodeGeneratorTest {
         new SequenceTypeNode(List.of(
             new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
-    String codec = findFile(files, "StatusCodec").toString();
-    assertThat(codec).contains("< 0");
-    assertThat(codec).contains("IllegalArgumentException");
+    String model = findFile(files, "record Status").toString();
+    assertThat(model).contains("< 0");
+    assertThat(model).contains("IllegalArgumentException");
   }
 
   @Test
@@ -258,9 +258,9 @@ class Asn1CodeGeneratorTest {
         List.of(new FieldNode("delta",
             new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
-    String codec = findFile(files, "OffsetCodec").toString();
-    assertThat(codec).contains("> 0");
-    assertThat(codec).contains("must be <= 0");
+    String model = findFile(files, "record Offset").toString();
+    assertThat(model).contains("> 0");
+    assertThat(model).contains("must be <= 0");
   }
 
   private static ModuleNode propulsionModule() {
@@ -300,5 +300,30 @@ class Asn1CodeGeneratorTest {
     String codec = findFile(files, "PropulsionCodec").toString();
     assertThat(codec).contains("GasEngineCodec().encodeInto(out, variant.value())");
     assertThat(codec).contains("new GasEngineCodec().decodeFrom(in)");
+  }
+
+  @Test
+  void generate_choiceTypeReferenceAlternative_emitsNullValidation() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(propulsionModule());
+    String model = findFile(files, "record Gasoline").toString();
+    assertThat(model).contains("== null");
+    assertThat(model).contains("value must not be null");
+  }
+
+  private static ModuleNode nestedReferenceModule() {
+    return new ModuleNode("ContainerModule", List.of(
+        new TypeAssignmentNode("Inner", new SequenceTypeNode(List.of(
+            new FieldNode("value",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))))))),
+        new TypeAssignmentNode("Outer", new SequenceTypeNode(List.of(
+            new FieldNode("inner", new TypeReferenceNode("Inner")))))));
+  }
+
+  @Test
+  void generate_typeReferenceFieldInSequence_emitsNullValidation() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(nestedReferenceModule());
+    String model = findFile(files, "record Outer").toString();
+    assertThat(model).contains("== null");
+    assertThat(model).contains("inner must not be null");
   }
 }
