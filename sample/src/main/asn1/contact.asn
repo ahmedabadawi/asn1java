@@ -1,0 +1,8 @@
+ContactModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Contact ::= SEQUENCE {
+        id   INTEGER (0..255),
+        age  INTEGER (0..255) OPTIONAL
+    }
+
+END
