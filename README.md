@@ -113,7 +113,7 @@ Each `specFile` entry may optionally set `packageName` to override `basePackage`
 - [x] `OCTET STRING (SIZE (lb..ub))` where `ub >= 65536` — uses §10.7 unconstrained length determinant (actual length in 1–2 bytes) per X.691 §16.7
 - [x] `CHOICE` — tagged union; constrained-whole-number alternative index (§23) followed by the selected alternative's own encoding; generates a Java sealed interface with one nested record per alternative
 - [x] `SEQUENCE` `OPTIONAL` components — one presence bit per optional component in a preamble bitmap (§19), preceding the field values; generates a nullable/boxed Java field (`null` means absent)
-- [x] `SEQUENCE` `DEFAULT` components (INTEGER and BOOLEAN) — shares the OPTIONAL preamble bitmap, but the presence bit means "differs from the default" (§11.5); the value is omitted on the wire when it equals the default, and the generated Java field stays unboxed/primitive
+- [x] `SEQUENCE` `DEFAULT` components (INTEGER, BOOLEAN, ENUMERATED, UTF8String/IA5String/VisibleString) — shares the OPTIONAL preamble bitmap, but the presence bit means "differs from the default" (§11.5); the value is omitted on the wire when it equals the default (ordinal equality for ENUMERATED, value equality for string types), and the generated Java field stays unboxed/primitive or plain `String`
 
 ## Known Issues
 
