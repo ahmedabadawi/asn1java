@@ -72,13 +72,10 @@ class PersonCodecApprovalTest {
     }
 
     @Test
-    void encode_WhenNameIsNull_ShouldThrowIllegalArgumentException() {
-        // Given
-        var person = new Person(null);
-
+    void construct_WhenNameIsNull_ShouldThrowIllegalArgumentException() {
         // When
         var thrown = catchThrowableOfType(IllegalArgumentException.class,
-                () -> CODEC.encode(person));
+                () -> new Person(null));
 
         // Then
         assertThat(thrown).hasMessageContaining("name must not be null");

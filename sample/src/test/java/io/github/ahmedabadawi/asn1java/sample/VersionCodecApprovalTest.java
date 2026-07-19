@@ -1,7 +1,8 @@
 package io.github.ahmedabadawi.asn1java.sample;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.ahmedabadawi.asn1java.sample.versioninfo.Version;
 import io.github.ahmedabadawi.asn1java.sample.versioninfo.VersionCodec;
@@ -44,7 +45,12 @@ class VersionCodecApprovalTest {
     }
 
     @Test
-    void encodeRejectNegative() {
-        assertThrows(IllegalArgumentException.class, () -> CODEC.encode(new Version(-1, 0)));
+    void construct_WhenMajorIsNegative_ShouldThrowIllegalArgumentException() {
+        // When
+        var thrown = catchThrowableOfType(IllegalArgumentException.class,
+                () -> new Version(-1, 0));
+
+        // Then
+        assertThat(thrown).hasMessageContaining("major must be >= 0");
     }
 }
