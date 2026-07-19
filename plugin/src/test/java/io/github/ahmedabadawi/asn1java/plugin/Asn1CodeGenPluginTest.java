@@ -31,6 +31,35 @@ class Asn1CodeGenPluginTest {
       END
       """;
 
+  private static final String TRACK_ASN =
+      """
+      TrackModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+          Track ::= SEQUENCE {
+              title UTF8String
+          }
+      END
+      """;
+
+  private static final String MIXTAPE_ASN =
+      """
+      MixModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+      IMPORTS Track FROM TrackModule;
+          Mix ::= SEQUENCE {
+              track Track
+          }
+      END
+      """;
+
+  private static final String MIXTAPE_UNKNOWN_TYPE_ASN =
+      """
+      MixModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+      IMPORTS Missing FROM TrackModule;
+          Mix ::= SEQUENCE {
+              track Missing
+          }
+      END
+      """;
+
   private Asn1CodeGenPlugin mojo(File specFile, File outputDir, String basePackage) {
     return mojo(specFile, outputDir, basePackage, List.of());
   }
@@ -237,5 +266,61 @@ class Asn1CodeGenPluginTest {
     var warnings = captureWarnings(mojo);
 
     assertThat(warnings).noneMatch(w -> w.contains("asn1java-runtime"));
+  }
+
+  @Test
+  void execute_crossModuleImport_generatesCodecDelegatingToExportingPackage(@TempDir Path tmp)
+      throws Exception {
+    var trackSpecFile = tmp.resolve("track.asn").toFile();
+    Files.writeString(trackSpecFile.toPath(), TRACK_ASN);
+    var mixtapeSpecFile = tmp.resolve("mixtape.asn").toFile();
+    Files.writeString(mixtapeSpecFile.toPath(), MIXTAPE_ASN);
+    var outputDir = tmp.resolve("generated").toFile();
+
+    var trackSpec = new SpecFile();
+    trackSpec.file = trackSpecFile;
+    var mixtapeSpec = new SpecFile();
+    mixtapeSpec.file = mixtapeSpecFile;
+
+    mojo(List.of(trackSpec, mixtapeSpec), outputDir, "io.example", List.of()).execute();
+
+    assertThat(outputDir.toPath().resolve("io/example/trackmodule/Track.java")).exists();
+    assertThat(outputDir.toPath().resolve("io/example/trackmodule/TrackCodec.java")).exists();
+    String mixCodec = Files.readString(
+        outputDir.toPath().resolve("io/example/mixmodule/MixCodec.java"));
+    assertThat(mixCodec).contains("import io.example.trackmodule.TrackCodec;");
+    assertThat(mixCodec).contains("new TrackCodec().encodeInto(out, model.track())");
+  }
+
+  @Test
+  void execute_importsFromModuleNotInCompilationSet_throwsMojoFailureException(@TempDir Path tmp)
+      throws Exception {
+    var mixtapeSpecFile = tmp.resolve("mixtape.asn").toFile();
+    Files.writeString(mixtapeSpecFile.toPath(), MIXTAPE_ASN);
+    var outputDir = tmp.resolve("generated").toFile();
+
+    assertThatThrownBy(() -> mojo(mixtapeSpecFile, outputDir, "io.example").execute())
+        .isInstanceOf(MojoFailureException.class)
+        .hasMessageContaining("imports from unknown module 'TrackModule'");
+  }
+
+  @Test
+  void execute_importsUnknownTypeFromKnownModule_throwsMojoFailureException(@TempDir Path tmp)
+      throws Exception {
+    var trackSpecFile = tmp.resolve("track.asn").toFile();
+    Files.writeString(trackSpecFile.toPath(), TRACK_ASN);
+    var mixtapeSpecFile = tmp.resolve("mixtape.asn").toFile();
+    Files.writeString(mixtapeSpecFile.toPath(), MIXTAPE_UNKNOWN_TYPE_ASN);
+    var outputDir = tmp.resolve("generated").toFile();
+
+    var trackSpec = new SpecFile();
+    trackSpec.file = trackSpecFile;
+    var mixtapeSpec = new SpecFile();
+    mixtapeSpec.file = mixtapeSpecFile;
+
+    assertThatThrownBy(
+        () -> mojo(List.of(trackSpec, mixtapeSpec), outputDir, "io.example", List.of()).execute())
+        .isInstanceOf(MojoFailureException.class)
+        .hasMessageContaining("imports unknown type 'Missing' from module 'TrackModule'");
   }
 }

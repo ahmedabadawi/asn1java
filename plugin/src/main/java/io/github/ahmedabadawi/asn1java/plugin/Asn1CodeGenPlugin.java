@@ -1,7 +1,9 @@
 package io.github.ahmedabadawi.asn1java.plugin;
 
 import io.github.ahmedabadawi.asn1java.core.Asn1Spec;
+import io.github.ahmedabadawi.asn1java.core.ast.ImportedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.codegen.Asn1CodeGenerator;
 import io.github.ahmedabadawi.asn1java.core.codegen.Asn1CodeWriter;
 import io.github.ahmedabadawi.asn1java.core.codegen.JavaPackage;
@@ -10,7 +12,11 @@ import io.github.ahmedabadawi.asn1java.core.exception.Asn1SyntaxException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -34,11 +40,15 @@ public class Asn1CodeGenPlugin extends AbstractMojo {
   @Parameter(defaultValue = "${project}", readonly = true)
   MavenProject project;
 
+  private record ParsedSpec(SpecFile specFile, ModuleNode module, JavaPackage targetPackage) {
+  }
+
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
     warnIfRuntimeMissing();
     project.addCompileSourceRoot(outputDirectory.getAbsolutePath());
 
+    List<ParsedSpec> parsedSpecs = new ArrayList<>();
     for (SpecFile specFile : specFiles) {
       if (specFile.file == null) {
         throw new MojoExecutionException("specFile is missing a required <file>");
@@ -49,7 +59,7 @@ public class Asn1CodeGenPlugin extends AbstractMojo {
             "%s has no packageName set and no basePackage is configured".formatted(file));
       }
 
-      getLog().info("Generating sources from: %s".formatted(file));
+      getLog().info("Parsing spec: %s".formatted(file));
       String source;
       try {
         source = Files.readString(file.toPath());
@@ -59,8 +69,45 @@ public class Asn1CodeGenPlugin extends AbstractMojo {
 
       var module = parse(file, source);
       JavaPackage targetPackage = specFile.packageName != null ? specFile.packageName : basePackage;
-      var generator = new Asn1CodeGenerator(targetPackage);
-      var files = generator.generate(module);
+      parsedSpecs.add(new ParsedSpec(specFile, module, targetPackage));
+    }
+
+    // Merge function keeps the first spec seen for a given module name: two spec files may
+    // legitimately share a module name (e.g. the same module compiled into two target
+    // packages), which is unrelated to — and must not break — cross-module IMPORTS resolution.
+    Map<String, JavaPackage> modulePackages = parsedSpecs.stream()
+        .collect(Collectors.toMap(spec -> spec.module().name(), ParsedSpec::targetPackage,
+            (first, second) -> first));
+    Map<String, Set<String>> moduleTypeNames = parsedSpecs.stream()
+        .collect(Collectors.toMap(spec -> spec.module().name(), spec -> spec.module().types()
+            .stream()
+            .map(TypeAssignmentNode::name)
+            .collect(Collectors.toSet()), (first, second) -> first));
+
+    for (ParsedSpec parsedSpec : parsedSpecs) {
+      for (ImportedTypeNode imported : parsedSpec.module().imports()) {
+        Set<String> exportedNames = moduleTypeNames.get(imported.moduleName());
+        if (exportedNames == null) {
+          throw new MojoFailureException(
+              "%s imports from unknown module '%s'"
+                  .formatted(parsedSpec.specFile().file, imported.moduleName()));
+        }
+        if (!exportedNames.contains(imported.typeName())) {
+          throw new MojoFailureException(
+              "%s imports unknown type '%s' from module '%s'"
+                  .formatted(parsedSpec.specFile().file, imported.typeName(),
+                      imported.moduleName()));
+        }
+      }
+    }
+
+    for (ParsedSpec parsedSpec : parsedSpecs) {
+      getLog().info("Generating sources from: %s".formatted(parsedSpec.specFile().file));
+      var generator = new Asn1CodeGenerator(parsedSpec.targetPackage(),
+          moduleName -> modulePackages.containsKey(moduleName)
+              ? modulePackages.get(moduleName).child(moduleName.toLowerCase()).value()
+              : null);
+      var files = generator.generate(parsedSpec.module());
 
       try {
         Asn1CodeWriter.writeTo(files, outputDirectory.toPath());
