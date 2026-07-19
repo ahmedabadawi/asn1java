@@ -114,6 +114,7 @@ Each `specFile` entry may optionally set `packageName` to override `basePackage`
 - [x] `CHOICE` — tagged union; constrained-whole-number alternative index (§23) followed by the selected alternative's own encoding; generates a Java sealed interface with one nested record per alternative
 - [x] `SEQUENCE` `OPTIONAL` components — one presence bit per optional component in a preamble bitmap (§19), preceding the field values; generates a nullable/boxed Java field (`null` means absent)
 - [x] `SEQUENCE` `DEFAULT` components (INTEGER, BOOLEAN, ENUMERATED, UTF8String/IA5String/VisibleString) — shares the OPTIONAL preamble bitmap, but the presence bit means "differs from the default" (§11.5); the value is omitted on the wire when it equals the default (ordinal equality for ENUMERATED, value equality for string types), and the generated Java field stays unboxed/primitive or plain `String`
+- [x] `SEQUENCE OF T` / `SEQUENCE (SIZE (lb..ub)) OF T` — element count length determinant (unconstrained §10.7, SIZE-constrained §16-style, or no bits for fixed `SIZE (n..n)`) followed by each element in order (§19); element type may be INTEGER, BOOLEAN, ENUMERATED, a string type, OCTET/BIT STRING, or a named type reference; generates a `List<T>` Java field, delegating element encode/decode to the referenced type's codec or the element's own primitive encoding
 
 ## Known Issues
 
