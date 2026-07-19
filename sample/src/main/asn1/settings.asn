@@ -1,0 +1,9 @@
+SettingsModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Settings ::= SEQUENCE {
+        id      INTEGER (0..255),
+        volume  INTEGER (0..100) DEFAULT 50,
+        muted   BOOLEAN DEFAULT FALSE
+    }
+
+END
