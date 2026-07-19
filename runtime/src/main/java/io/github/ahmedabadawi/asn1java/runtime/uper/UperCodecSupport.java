@@ -141,7 +141,11 @@ public final class UperCodecSupport {
     return new String(chars);
   }
 
-  // X.691 §15: BIT STRING — write/read exactly bitCount bits from/into a byte array
+  // X.691 §15: BIT STRING — write/read exactly bitCount bits from/into a byte array.
+  // Only a fixed bit count is supported; there is no length determinant, so a genuine
+  // SIZE(lb..ub) range (lb != ub) is not wire-supported yet. Record constructors
+  // therefore intentionally omit size-range validation for BIT STRING fields until this
+  // is implemented — validating a range the encoder can't actually honor would be misleading.
   public static void encodeBitString(UperOutputStream out, byte[] value, int bitCount) {
     for (int i = 0; i < bitCount; i++) {
       int byteIndex = i / 8;
