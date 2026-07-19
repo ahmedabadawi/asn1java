@@ -16,6 +16,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
@@ -78,10 +79,11 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
   @Override
   public SequenceTypeNode visitSequenceType(ASN1Parser.SequenceTypeContext context) {
-    List<FieldNode> fields = context.fieldList().field().stream().map(f -> switch (visit(f)) {
-      case FieldNode n -> n;
-      default -> throw new IllegalStateException("unexpected node for field: " + f.getText());
-    }).toList();
+    List<SequenceFieldNode> fields = context.sequenceFieldList().sequenceField().stream()
+        .map(f -> switch (visit(f)) {
+          case SequenceFieldNode n -> n;
+          default -> throw new IllegalStateException("unexpected node for field: " + f.getText());
+        }).toList();
     return new SequenceTypeNode(fields);
   }
 
@@ -98,6 +100,19 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   @Override
   public FieldNode visitField(ASN1Parser.FieldContext context) {
     String name = context.LOWER_IDENT().getText();
+    TypeNode type = resolveFieldType(context.fieldType());
+    return new FieldNode(name, type);
+  }
+
+  @Override
+  public SequenceFieldNode visitSequenceField(ASN1Parser.SequenceFieldContext context) {
+    String name = context.LOWER_IDENT().getText();
+    TypeNode type = resolveFieldType(context.fieldType());
+    boolean optional = context.OPTIONAL() != null;
+    return new SequenceFieldNode(name, type, optional);
+  }
+
+  private TypeNode resolveFieldType(ASN1Parser.FieldTypeContext context) {
     ParserRuleContext typeContext;
     if (context.integerType() != null) {
       typeContext = context.integerType();
@@ -118,14 +133,13 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     } else if (context.enumeratedType() != null) {
       typeContext = context.enumeratedType();
     } else {
-      return new FieldNode(name, new TypeReferenceNode(context.typeReference().UPPER_IDENT().getText()));
+      return new TypeReferenceNode(context.typeReference().UPPER_IDENT().getText());
     }
-    TypeNode type = switch (visit(typeContext)) {
+    return switch (visit(typeContext)) {
       case TypeNode t -> t;
       default ->
           throw new IllegalStateException("unexpected node for field type: " + typeContext.getText());
     };
-    return new FieldNode(name, type);
   }
 
   @Override

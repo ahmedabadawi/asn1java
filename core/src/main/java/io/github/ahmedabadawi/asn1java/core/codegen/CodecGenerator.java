@@ -22,6 +22,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
@@ -40,6 +41,8 @@ final class CodecGenerator {
   private static final ClassName UPER_INPUT_STREAM = ClassName.get(RUNTIME_PKG, "UperInputStream");
   private static final ClassName UPER_CODEC_SUPPORT =
       ClassName.get(RUNTIME_PKG, "UperCodecSupport");
+  private static final ClassName STRING = ClassName.get("java.lang", "String");
+  private static final ArrayTypeName BYTE_ARRAY = ArrayTypeName.of(TypeName.BYTE);
 
   private CodecGenerator() {
   }
@@ -166,18 +169,17 @@ final class CodecGenerator {
         .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
         .addParameter(ParameterSpec.builder(modelClass, "model").build());
 
+    fields.stream().filter(EncodedField::optional).forEach(field ->
+        methodBuilder.addStatement("out.writeBits(model.$N() != null ? 1 : 0, 1)", field.name()));
     fields.forEach(field -> addEncodeStatement(methodBuilder, field, targetPackage));
     return methodBuilder.build();
   }
 
   static void addFieldValidation(MethodSpec.Builder methodBuilder, EncodedField field) {
     if (field.encoding() == Encoding.UTF8_STRING) {
-      methodBuilder.beginControlFlow("if ($N == null)", field.name())
-          .addStatement("throw new $T($S)", IllegalArgumentException.class,
-              field.name() + " must not be null")
-          .endControlFlow();
+      CodeBlock.Builder checks = CodeBlock.builder();
       if (field.lowerBound() > 0) {
-        methodBuilder.beginControlFlow(
+        checks.beginControlFlow(
                 "if ($N.getBytes($T.UTF_8).length < $L)",
                 field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
                 field.lowerBound())
@@ -186,7 +188,7 @@ final class CodecGenerator {
             .endControlFlow();
       }
       if (field.upperBound() != Long.MAX_VALUE) {
-        methodBuilder.beginControlFlow(
+        checks.beginControlFlow(
                 "if ($N.getBytes($T.UTF_8).length > $L)",
                 field.name(), ClassName.get("java.nio.charset", "StandardCharsets"),
                 (int) field.upperBound())
@@ -194,80 +196,102 @@ final class CodecGenerator {
                 field.name() + " length must be <= " + (int) field.upperBound())
             .endControlFlow();
       }
+      addNullableFieldChecks(methodBuilder, field, checks.build());
     } else if (field.encoding() == Encoding.IA5_STRING
         || field.encoding() == Encoding.VISIBLE_STRING) {
-      methodBuilder.beginControlFlow("if ($N == null)", field.name())
-          .addStatement("throw new $T($S)", IllegalArgumentException.class,
-              field.name() + " must not be null")
-          .endControlFlow();
+      CodeBlock.Builder checks = CodeBlock.builder();
       if (field.lowerBound() > 0) {
-        methodBuilder.beginControlFlow("if ($N.length() < $L)",
+        checks.beginControlFlow("if ($N.length() < $L)",
                 field.name(), field.lowerBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " length must be >= " + field.lowerBound())
             .endControlFlow();
       }
       if (field.upperBound() != Long.MAX_VALUE) {
-        methodBuilder.beginControlFlow("if ($N.length() > $L)",
+        checks.beginControlFlow("if ($N.length() > $L)",
                 field.name(), (int) field.upperBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " length must be <= " + (int) field.upperBound())
             .endControlFlow();
       }
+      addNullableFieldChecks(methodBuilder, field, checks.build());
     } else if (field.encoding() == Encoding.BIT_STRING) {
-      methodBuilder.beginControlFlow("if ($N == null)", field.name())
-          .addStatement("throw new $T($S)", IllegalArgumentException.class,
-              field.name() + " must not be null")
-          .endControlFlow();
+      CodeBlock.Builder checks = CodeBlock.builder();
       if (field.bitCount() == 0 && field.lowerBound() > 0) {
-        methodBuilder.beginControlFlow(
+        checks.beginControlFlow(
                 "if ($N.length * 8 != $L)", field.name(), field.lowerBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must be exactly " + field.lowerBound() + " bits")
             .endControlFlow();
       }
+      addNullableFieldChecks(methodBuilder, field, checks.build());
     } else if (field.encoding() == Encoding.OCTET_STRING) {
-      methodBuilder.beginControlFlow("if ($N == null)", field.name())
-          .addStatement("throw new $T($S)", IllegalArgumentException.class,
-              field.name() + " must not be null")
-          .endControlFlow();
+      CodeBlock.Builder checks = CodeBlock.builder();
       if (field.lowerBound() > 0) {
-        methodBuilder.beginControlFlow("if ($N.length < $L)",
+        checks.beginControlFlow("if ($N.length < $L)",
                 field.name(), field.lowerBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " length must be >= " + field.lowerBound())
             .endControlFlow();
       }
       if (field.upperBound() != Long.MAX_VALUE) {
-        methodBuilder.beginControlFlow("if ($N.length > $L)",
+        checks.beginControlFlow("if ($N.length > $L)",
                 field.name(), (int) field.upperBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " length must be <= " + (int) field.upperBound())
             .endControlFlow();
       }
+      addNullableFieldChecks(methodBuilder, field, checks.build());
     } else if (field.encoding() == Encoding.UNCONSTRAINED) {
+      CodeBlock.Builder checks = CodeBlock.builder();
       if (field.upperBound() != Long.MAX_VALUE) {
-        methodBuilder.beginControlFlow("if ($N > $LL)", field.name(), field.upperBound())
+        checks.beginControlFlow("if ($N > $LL)", field.name(), field.upperBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must be <= " + field.upperBound())
             .endControlFlow();
       }
+      addOptionalGuardedChecks(methodBuilder, field, checks.build());
     } else if (field.encoding() == Encoding.TYPE_REFERENCE) {
-      methodBuilder.beginControlFlow("if ($N == null)", field.name())
-          .addStatement("throw new $T($S)", IllegalArgumentException.class,
-              field.name() + " must not be null")
-          .endControlFlow();
+      addNullableFieldChecks(methodBuilder, field, CodeBlock.of(""));
     } else if (field.encoding() != Encoding.BOOLEAN) {
-      methodBuilder.beginControlFlow("if ($N < $L)", field.name(), field.lowerBound())
+      CodeBlock.Builder checks = CodeBlock.builder();
+      checks.beginControlFlow("if ($N < $L)", field.name(), field.lowerBound())
           .addStatement("throw new $T($S)", IllegalArgumentException.class,
               field.name() + " must be >= " + field.lowerBound())
           .endControlFlow();
       if (field.upperBound() != Long.MAX_VALUE) {
-        methodBuilder.beginControlFlow("if ($N > $L)", field.name(), (int) field.upperBound())
+        checks.beginControlFlow("if ($N > $L)", field.name(), (int) field.upperBound())
             .addStatement("throw new $T($S)", IllegalArgumentException.class,
                 field.name() + " must be <= " + (int) field.upperBound())
             .endControlFlow();
       }
+      addOptionalGuardedChecks(methodBuilder, field, checks.build());
+    }
+  }
+
+  private static void addNullableFieldChecks(MethodSpec.Builder methodBuilder, EncodedField field,
+      CodeBlock checks) {
+    if (field.optional()) {
+      addOptionalGuardedChecks(methodBuilder, field, checks);
+    } else {
+      methodBuilder.beginControlFlow("if ($N == null)", field.name())
+          .addStatement("throw new $T($S)", IllegalArgumentException.class,
+              field.name() + " must not be null")
+          .endControlFlow();
+      methodBuilder.addCode(checks);
+    }
+  }
+
+  private static void addOptionalGuardedChecks(MethodSpec.Builder methodBuilder, EncodedField field,
+      CodeBlock checks) {
+    if (field.optional()) {
+      if (!checks.isEmpty()) {
+        methodBuilder.beginControlFlow("if ($N != null)", field.name())
+            .addCode(checks)
+            .endControlFlow();
+      }
+    } else {
+      methodBuilder.addCode(checks);
     }
   }
 
@@ -287,6 +311,8 @@ final class CodecGenerator {
         .returns(modelClass)
         .addParameter(ParameterSpec.builder(UPER_INPUT_STREAM, "in").build());
 
+    fields.stream().filter(EncodedField::optional).forEach(field ->
+        methodBuilder.addStatement("boolean $LPresent = in.readBits(1) != 0", field.name()));
     fields.forEach(field -> addDecodeStatement(methodBuilder, field, targetPackage));
 
     String args = fields.stream()
@@ -298,6 +324,9 @@ final class CodecGenerator {
 
   private static void addEncodeStatement(MethodSpec.Builder builder, EncodedField field,
       String targetPackage) {
+    if (field.optional()) {
+      builder.beginControlFlow("if (model.$N() != null)", field.name());
+    }
     switch (field.encoding()) {
       case SEMI_CONSTRAINED -> {
         if (field.lowerBound() == 0) {
@@ -342,6 +371,9 @@ final class CodecGenerator {
       case TYPE_REFERENCE -> builder.addStatement("new $T().encodeInto(out, model.$N())",
           ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), field.name());
     }
+    if (field.optional()) {
+      builder.endControlFlow();
+    }
   }
 
   private static void addDecodeStatement(MethodSpec.Builder builder, EncodedField field,
@@ -349,50 +381,68 @@ final class CodecGenerator {
     switch (field.encoding()) {
       case SEMI_CONSTRAINED -> {
         if (field.lowerBound() == 0) {
-          builder.addStatement("int $N = (int) $T.decodeSemiConstrainedInt(in)", field.name(),
-              UPER_CODEC_SUPPORT);
+          addDecodeAssignment(builder, field, TypeName.INT,
+              "(int) $T.decodeSemiConstrainedInt(in)", UPER_CODEC_SUPPORT);
         } else {
-          builder.addStatement("int $N = (int) $T.decodeSemiConstrainedInt(in) + $L", field.name(),
-              UPER_CODEC_SUPPORT, field.lowerBound());
+          addDecodeAssignment(builder, field, TypeName.INT,
+              "(int) $T.decodeSemiConstrainedInt(in) + $L", UPER_CODEC_SUPPORT,
+              field.lowerBound());
         }
       }
       case CONSTRAINED -> {
         if (field.lowerBound() == 0) {
-          builder.addStatement("int $N = (int) in.readBits($L)", field.name(), field.bitCount());
+          addDecodeAssignment(builder, field, TypeName.INT, "(int) in.readBits($L)",
+              field.bitCount());
         } else {
-          builder.addStatement("int $N = (int) in.readBits($L) + $L", field.name(),
+          addDecodeAssignment(builder, field, TypeName.INT, "(int) in.readBits($L) + $L",
               field.bitCount(), field.lowerBound());
         }
       }
-      case ZERO_RANGE -> builder.addStatement("int $N = $L", field.name(), field.lowerBound());
-      case UNCONSTRAINED -> builder.addStatement("long $N = $T.decodeUnconstrainedInt(in)",
-          field.name(), UPER_CODEC_SUPPORT);
+      case ZERO_RANGE ->
+          addDecodeAssignment(builder, field, TypeName.INT, "$L", field.lowerBound());
+      case UNCONSTRAINED -> addDecodeAssignment(builder, field, TypeName.LONG,
+          "$T.decodeUnconstrainedInt(in)", UPER_CODEC_SUPPORT);
       case OCTET_STRING -> {
         if (field.bitCount() == 0) {
-          builder.addStatement("byte[] $N = $T.decodeFixedOctetString(in, $L)",
-              field.name(), UPER_CODEC_SUPPORT, field.lowerBound());
+          addDecodeAssignment(builder, field, BYTE_ARRAY, "$T.decodeFixedOctetString(in, $L)",
+              UPER_CODEC_SUPPORT, field.lowerBound());
         } else {
-          builder.addStatement("byte[] $N = $T.decodeOctetString(in, $L, $L)",
-              field.name(), UPER_CODEC_SUPPORT, field.lowerBound(), (int) field.upperBound());
+          addDecodeAssignment(builder, field, BYTE_ARRAY, "$T.decodeOctetString(in, $L, $L)",
+              UPER_CODEC_SUPPORT, field.lowerBound(), (int) field.upperBound());
         }
       }
-      case BIT_STRING -> builder.addStatement("byte[] $N = $T.decodeBitString(in, $L)",
-          field.name(), UPER_CODEC_SUPPORT, field.lowerBound());
-      case IA5_STRING -> builder.addStatement("$T $N = $T.decodeIa5String(in, $L, $L)",
-          ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT,
-          field.lowerBound(), (int) field.upperBound());
-      case VISIBLE_STRING -> builder.addStatement("$T $N = $T.decodeVisibleString(in, $L, $L)",
-          ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT,
-          field.lowerBound(), (int) field.upperBound());
-      case BOOLEAN -> builder.addStatement("boolean $N = in.readBits(1) != 0", field.name());
-      case UTF8_STRING -> builder.addStatement("$T $N = $T.decodeUtf8String(in)",
-          ClassName.get("java.lang", "String"), field.name(), UPER_CODEC_SUPPORT);
-      case ENUMERATED -> builder.addStatement("int $N = (int) in.readBits($L)",
-          field.name(), field.bitCount());
-      case TYPE_REFERENCE -> builder.addStatement("$T $N = new $T().decodeFrom(in)",
-          ClassName.get(targetPackage, field.referencedTypeName()),
-          field.name(),
+      case BIT_STRING -> addDecodeAssignment(builder, field, BYTE_ARRAY,
+          "$T.decodeBitString(in, $L)", UPER_CODEC_SUPPORT, field.lowerBound());
+      case IA5_STRING -> addDecodeAssignment(builder, field, STRING,
+          "$T.decodeIa5String(in, $L, $L)", UPER_CODEC_SUPPORT, field.lowerBound(),
+          (int) field.upperBound());
+      case VISIBLE_STRING -> addDecodeAssignment(builder, field, STRING,
+          "$T.decodeVisibleString(in, $L, $L)", UPER_CODEC_SUPPORT, field.lowerBound(),
+          (int) field.upperBound());
+      case BOOLEAN -> addDecodeAssignment(builder, field, TypeName.BOOLEAN,
+          "in.readBits(1) != 0");
+      case UTF8_STRING -> addDecodeAssignment(builder, field, STRING, "$T.decodeUtf8String(in)",
+          UPER_CODEC_SUPPORT);
+      case ENUMERATED -> addDecodeAssignment(builder, field, TypeName.INT,
+          "(int) in.readBits($L)", field.bitCount());
+      case TYPE_REFERENCE -> addDecodeAssignment(builder, field,
+          ClassName.get(targetPackage, field.referencedTypeName()), "new $T().decodeFrom(in)",
           ClassName.get(targetPackage, field.referencedTypeName() + "Codec"));
+    }
+  }
+
+  private static void addDecodeAssignment(MethodSpec.Builder builder, EncodedField field,
+      TypeName mandatoryType, String rhsFormat, Object... rhsArgs) {
+    Object[] args = new Object[rhsArgs.length + 2];
+    args[1] = field.name();
+    System.arraycopy(rhsArgs, 0, args, 2, rhsArgs.length);
+    if (field.optional()) {
+      args[0] = mandatoryType.box();
+      builder.addStatement(
+          "$T $N = " + field.name() + "Present ? (" + rhsFormat + ") : null", args);
+    } else {
+      args[0] = mandatoryType;
+      builder.addStatement("$T $N = " + rhsFormat, args);
     }
   }
 
@@ -403,7 +453,7 @@ final class CodecGenerator {
           .filter(field -> !(field.type() instanceof NullTypeNode))
           .map(field -> {
             String javaName = CodegenUtils.toJavaFieldName(field.name());
-            return switch (field.type()) {
+            EncodedField encoded = switch (field.type()) {
               case IntegerTypeNode intType -> toEncodedField(javaName, intType);
               case BooleanTypeNode ignored -> new EncodedField(javaName, 0, Encoding.BOOLEAN, 1);
               case Utf8StringTypeNode utf8Type -> toEncodedField(javaName, utf8Type);
@@ -420,8 +470,9 @@ final class CodecGenerator {
               case EnumeratedTypeNode enumType -> toEncodedField(javaName, enumType);
               case TypeReferenceNode ref ->
                   new EncodedField(javaName, 0, Encoding.TYPE_REFERENCE, 0, Long.MAX_VALUE,
-                      ref.typeName());
+                      ref.typeName(), false);
             };
+            return field.optional() ? encoded.withOptional(true) : encoded;
           })
           .collect(Collectors.toList());
       case ChoiceTypeNode ignored -> throw new IllegalStateException(
@@ -543,13 +594,18 @@ final class CodecGenerator {
   }
 
   record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
-      long upperBound, String referencedTypeName) {
+      long upperBound, String referencedTypeName, boolean optional) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
-      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null);
+      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false);
     }
 
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
-      this(name, lowerBound, encoding, bitCount, upperBound, null);
+      this(name, lowerBound, encoding, bitCount, upperBound, null, false);
+    }
+
+    EncodedField withOptional(boolean optionalValue) {
+      return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
+          optionalValue);
     }
   }
 }

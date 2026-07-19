@@ -16,6 +16,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
@@ -70,11 +71,14 @@ final class ModelGenerator {
     MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
         .addModifiers(Modifier.PUBLIC);
     Iterator<CodecGenerator.EncodedField> fieldIterator = fields.iterator();
-    for (FieldNode field : seq.fields()) {
+    for (SequenceFieldNode field : seq.fields()) {
       if (field.type() instanceof NullTypeNode) {
         continue;
       }
       TypeName javaType = resolveFieldJavaType(targetPackage, field.type());
+      if (field.optional()) {
+        javaType = javaType.box();
+      }
       ctorBuilder.addParameter(javaType, CodegenUtils.toJavaFieldName(field.name()));
       CodecGenerator.addFieldValidation(ctorBuilder, fieldIterator.next());
     }

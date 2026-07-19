@@ -15,6 +15,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
@@ -81,10 +82,15 @@ public class Asn1SemanticValidator {
   private void checkSequence(String typeName, SequenceTypeNode seq,
       Set<String> definedTypeNames, List<ValidationError> errors) {
     Set<String> seen = new HashSet<>();
-    for (FieldNode field : seq.fields()) {
+    for (SequenceFieldNode field : seq.fields()) {
       if (!seen.add(field.name())) {
         errors.add(
             new ValidationError("Duplicate field name '" + field.name() + "' in type " + typeName));
+      }
+      if (field.optional() && field.type() instanceof NullTypeNode) {
+        errors.add(new ValidationError(
+            "Field '%s' in type %s cannot be OPTIONAL on a NULL type"
+                .formatted(field.name(), typeName)));
       }
       checkFieldType(typeName + "." + field.name(), field.type(), definedTypeNames, errors);
     }

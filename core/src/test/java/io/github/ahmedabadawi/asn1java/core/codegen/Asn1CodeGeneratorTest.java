@@ -13,6 +13,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import java.util.Optional;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
@@ -28,8 +29,10 @@ class Asn1CodeGeneratorTest {
   private static ModuleNode versionInfoModule() {
     return new ModuleNode("VersionInfo", List.of(new TypeAssignmentNode("Version",
         new SequenceTypeNode(List.of(
-            new FieldNode("major", new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new MaxBound()))),
-            new FieldNode("minor", new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new MaxBound()))))))));
+            new SequenceFieldNode("major",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new MaxBound())), false),
+            new SequenceFieldNode("minor",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new MaxBound())), false))))));
   }
 
   private static JavaFile findFile(List<JavaFile> files, String typeName) {
@@ -87,8 +90,9 @@ class Asn1CodeGeneratorTest {
   void generate_constrainedField_emitsWriteBitsWithBitCount() {
     // INTEGER (0..255): range=255, bitCount = 32 - numberOfLeadingZeros(255) = 8
     var module = new ModuleNode("Flags", List.of(new TypeAssignmentNode("Flags",
-        new SequenceTypeNode(List.of(new FieldNode("value",
-            new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255)))))))));
+        new SequenceTypeNode(List.of(new SequenceFieldNode("value",
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))),
+            false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "FlagsCodec").toString();
     assertThat(codec).contains("writeBits");
@@ -118,7 +122,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_booleanFieldInSequence_producesJavaBooleanType() {
     var module = new ModuleNode("DeviceInfo", List.of(new TypeAssignmentNode("Device",
-        new SequenceTypeNode(List.of(new FieldNode("active", new BooleanTypeNode()))))));
+        new SequenceTypeNode(List.of(new SequenceFieldNode("active", new BooleanTypeNode(), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Device").toString();
     assertThat(model).contains("boolean active");
@@ -127,7 +131,7 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_booleanField_emitsSingleBitWriteAndRead() {
     var module = new ModuleNode("DeviceInfo", List.of(new TypeAssignmentNode("Device",
-        new SequenceTypeNode(List.of(new FieldNode("active", new BooleanTypeNode()))))));
+        new SequenceTypeNode(List.of(new SequenceFieldNode("active", new BooleanTypeNode(), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "DeviceCodec").toString();
     assertThat(codec).contains("? 1 : 0, 1)");
@@ -147,8 +151,9 @@ class Asn1CodeGeneratorTest {
   void generate_nonZeroLowerBound_emitsOffsetInCode() {
     // INTEGER (10..20): lb=10, range=10, bitCount=4
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
-        List.of(new FieldNode("x",
-            new IntegerTypeNode(new ConstraintNode(new NumberBound(10), new NumberBound(20)))))))));
+        List.of(new SequenceFieldNode("x",
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(10), new NumberBound(20))),
+            false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "FooCodec").toString();
     assertThat(codec).contains("- 10");
@@ -159,8 +164,9 @@ class Asn1CodeGeneratorTest {
   void generate_zeroRangeField_emitsEqualityValidation() {
     // INTEGER (5..5): lb=ub=5, nothing is written on the wire but the value must equal 5
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
-        List.of(new FieldNode("x",
-            new IntegerTypeNode(new ConstraintNode(new NumberBound(5), new NumberBound(5)))))))));
+        List.of(new SequenceFieldNode("x",
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(5), new NumberBound(5))),
+            false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Foo").toString();
     assertThat(model).contains("must be >= 5");
@@ -171,8 +177,9 @@ class Asn1CodeGeneratorTest {
   void generate_constrainedField_emitsUpperBoundValidation() {
     // INTEGER (0..255): lb=0, ub=255
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
-        List.of(new FieldNode("x",
-            new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255)))))))));
+        List.of(new SequenceFieldNode("x",
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))),
+            false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Foo").toString();
     assertThat(model).contains("> 255");
@@ -182,7 +189,8 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_utf8StringFieldInSequence_producesJavaStringType() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
-        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("name", new Utf8StringTypeNode(Optional.empty()), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Person").toString();
     assertThat(model).contains("String name");
@@ -191,7 +199,8 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_utf8StringField_emitsUtf8StringHelperCalls() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
-        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("name", new Utf8StringTypeNode(Optional.empty()), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "PersonCodec").toString();
     assertThat(codec).contains("encodeUtf8String");
@@ -201,7 +210,8 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_utf8StringField_emitsNullValidation() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
-        new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("name", new Utf8StringTypeNode(Optional.empty()), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Person").toString();
     assertThat(model).contains("== null");
@@ -213,7 +223,8 @@ class Asn1CodeGeneratorTest {
     // Status ::= SEQUENCE { state ENUMERATED { pending, active, inactive } }
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
-            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+            new SequenceFieldNode("state",
+                new EnumeratedTypeNode(List.of("pending", "active", "inactive")), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Status").toString();
     assertThat(model).contains("int state");
@@ -224,7 +235,8 @@ class Asn1CodeGeneratorTest {
     // 3 values: range=2, bitCount=2
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
-            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+            new SequenceFieldNode("state",
+                new EnumeratedTypeNode(List.of("pending", "active", "inactive")), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "StatusCodec").toString();
     assertThat(codec).contains("writeBits(model.state(), 2)");
@@ -235,7 +247,8 @@ class Asn1CodeGeneratorTest {
   void generate_enumeratedFieldInSequence_emitsLowerBoundValidation() {
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
-            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+            new SequenceFieldNode("state",
+                new EnumeratedTypeNode(List.of("pending", "active", "inactive")), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Status").toString();
     assertThat(model).contains("< 0");
@@ -247,7 +260,8 @@ class Asn1CodeGeneratorTest {
     // 3 values: valid indexes are 0..2, so upper bound is 2
     var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
         new SequenceTypeNode(List.of(
-            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+            new SequenceFieldNode("state",
+                new EnumeratedTypeNode(List.of("pending", "active", "inactive")), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Status").toString();
     assertThat(model).contains("> 2");
@@ -268,7 +282,7 @@ class Asn1CodeGeneratorTest {
     // 2 values: range=1, bitCount=1
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("Switch",
         new SequenceTypeNode(List.of(
-            new FieldNode("state", new EnumeratedTypeNode(List.of("on", "off"))))))));
+            new SequenceFieldNode("state", new EnumeratedTypeNode(List.of("on", "off")), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String codec = findFile(files, "SwitchCodec").toString();
     assertThat(codec).contains("writeBits(model.state(), 1)");
@@ -278,8 +292,8 @@ class Asn1CodeGeneratorTest {
   void generate_minBoundedField_producesLongTypeAndUnconstrainedEncoding() {
     // INTEGER (MIN..0): lower=MIN, upper=0 — unconstrained whole number (X.691 §12.2.3)
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Offset", new SequenceTypeNode(
-        List.of(new FieldNode("delta",
-            new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
+        List.of(new SequenceFieldNode("delta",
+            new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0))), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Offset").toString();
     String codec = findFile(files, "OffsetCodec").toString();
@@ -291,8 +305,8 @@ class Asn1CodeGeneratorTest {
   @Test
   void generate_minBoundedField_emitsUpperBoundValidation() {
     var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Offset", new SequenceTypeNode(
-        List.of(new FieldNode("delta",
-            new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0)))))))));
+        List.of(new SequenceFieldNode("delta",
+            new IntegerTypeNode(new ConstraintNode(new MinBound(), new NumberBound(0))), false))))));
     var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
     String model = findFile(files, "record Offset").toString();
     assertThat(model).contains("> 0");
@@ -302,10 +316,12 @@ class Asn1CodeGeneratorTest {
   private static ModuleNode propulsionModule() {
     return new ModuleNode("VehicleModule", List.of(
         new TypeAssignmentNode("GasEngine", new SequenceTypeNode(List.of(
-            new FieldNode("displacementCc",
-                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(8000)))),
-            new FieldNode("cylinders",
-                new IntegerTypeNode(new ConstraintNode(new NumberBound(1), new NumberBound(16))))))),
+            new SequenceFieldNode("displacementCc",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(8000))),
+                false),
+            new SequenceFieldNode("cylinders",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(1), new NumberBound(16))),
+                false)))),
         new TypeAssignmentNode("Propulsion", new ChoiceTypeNode(List.of(
             new FieldNode("gasoline", new TypeReferenceNode("GasEngine")),
             new FieldNode("none", new NullTypeNode()))))));
@@ -346,13 +362,56 @@ class Asn1CodeGeneratorTest {
     assertThat(model).contains("value must not be null");
   }
 
+  private static ModuleNode contactModule() {
+    return new ModuleNode("ContactModule", List.of(new TypeAssignmentNode("Contact",
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("id",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))),
+                false),
+            new SequenceFieldNode("age",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))),
+                true))))));
+  }
+
+  @Test
+  void generate_optionalField_producesBoxedJavaType() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(contactModule());
+    String model = findFile(files, "record Contact").toString();
+    assertThat(model).contains("int id");
+    assertThat(model).contains("Integer age");
+  }
+
+  @Test
+  void generate_optionalField_emitsPreambleBitAndGuardedEncode() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(contactModule());
+    String codec = findFile(files, "ContactCodec").toString();
+    assertThat(codec).contains("out.writeBits(model.age() != null ? 1 : 0, 1)");
+    assertThat(codec).contains("if (model.age() != null)");
+  }
+
+  @Test
+  void generate_optionalField_emitsPresenceGuardedDecode() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(contactModule());
+    String codec = findFile(files, "ContactCodec").toString();
+    assertThat(codec).contains("boolean agePresent = in.readBits(1) != 0");
+    assertThat(codec).contains("agePresent ?");
+  }
+
+  @Test
+  void generate_optionalField_skipsNullValidationWhenAbsent() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(contactModule());
+    String model = findFile(files, "record Contact").toString();
+    assertThat(model).contains("if (age != null)");
+  }
+
   private static ModuleNode nestedReferenceModule() {
     return new ModuleNode("ContainerModule", List.of(
         new TypeAssignmentNode("Inner", new SequenceTypeNode(List.of(
-            new FieldNode("value",
-                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))))))),
+            new SequenceFieldNode("value",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))),
+                false)))),
         new TypeAssignmentNode("Outer", new SequenceTypeNode(List.of(
-            new FieldNode("inner", new TypeReferenceNode("Inner")))))));
+            new SequenceFieldNode("inner", new TypeReferenceNode("Inner"), false))))));
   }
 
   @Test

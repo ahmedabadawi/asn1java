@@ -1,10 +1,10 @@
 package io.github.ahmedabadawi.asn1java.core;
 
-import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.exception.Asn1SyntaxException;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class Asn1SpecTest {
     var sequence = (SequenceTypeNode) version.type();
     assertThat(sequence.fields())
         .hasSize(2)
-        .extracting(FieldNode::name)
+        .extracting(SequenceFieldNode::name)
         .containsExactly("major", "minor");
     assertThat(sequence.fields()).allSatisfy(f -> {
       assertThat(f.type()).isInstanceOf(IntegerTypeNode.class);
