@@ -219,6 +219,18 @@ class Asn1CodeGeneratorTest {
   }
 
   @Test
+  void generate_enumeratedFieldInSequence_emitsUpperBoundValidation() {
+    // 3 values: valid indexes are 0..2, so upper bound is 2
+    var module = new ModuleNode("StatusInfo", List.of(new TypeAssignmentNode("Status",
+        new SequenceTypeNode(List.of(
+            new FieldNode("state", new EnumeratedTypeNode(List.of("pending", "active", "inactive"))))))));
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
+    String model = findFile(files, "record Status").toString();
+    assertThat(model).contains("> 2");
+    assertThat(model).contains("must be <= 2");
+  }
+
+  @Test
   void generate_topLevelEnumeratedType_producesIntWrapperRecord() {
     var module = new ModuleNode("Types", List.of(new TypeAssignmentNode("State",
         new EnumeratedTypeNode(List.of("on", "off")))));
