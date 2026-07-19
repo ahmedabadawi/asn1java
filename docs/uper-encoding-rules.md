@@ -549,6 +549,80 @@ default ordinal = 1 (`active`); `nickname` is unconstrained UTF8String):
 
 ---
 
+## SEQUENCE OF — element count + elements (§19, length determinant per §10.7/§10.9)
+
+A `SEQUENCE OF T` value encodes the number of elements as a length determinant,
+then each element in declaration order using that element's own type rules — no
+tags, lengths, or padding between elements. Three cases, depending on whether a
+SIZE constraint is present, exactly mirroring the OCTET STRING/BIT STRING cases
+above.
+
+### Unconstrained `SEQUENCE OF T` (no SIZE)
+
+The element count is encoded with the same §10.7 length determinant used by
+unconstrained UTF8String/OCTET STRING: 1 byte if count < 128 (high bit 0); 2 bytes
+if 128 ≤ count < 16384 (`0x80 | count>>8`, `count&0xFF`).
+
+**Steps:**
+1. `n` = element count
+2. Write the length determinant for `n` (1 or 2 bytes per §10.7)
+3. Encode each of the `n` elements using its own type's encoding, in order
+
+**Example** (`SEQUENCE OF INTEGER (0..255)`, each element an 8-bit constrained whole number):
+
+| value    | n | length byte | element bits            | hex      |
+|----------|---|-------------|--------------------------|----------|
+| `[]`     | 0 | `00`        | (none)                   | `00`     |
+| `[1, 2]` | 2 | `02`        | `00000001` `00000010`    | `020102` |
+
+### `SEQUENCE (SIZE (lb..ub)) OF T` — range-constrained count
+
+The element count is encoded as a constrained whole number — offset from `lb`, in
+`bit_count = ceil(log2(ub-lb+1))` bits — then the elements follow with no gap.
+
+**Steps:**
+1. `offset = n − lb`
+2. `range = ub − lb`
+3. `bit_count = 32 − Integer.numberOfLeadingZeros(range)` (0 if `range == 0`, see fixed-size case below)
+4. Write `offset` in `bit_count` bits
+5. Encode each of the `n` elements using its own type's encoding, in order
+
+**Example** (`SEQUENCE (SIZE (1..4)) OF INTEGER (0..255)`, range=3, bit_count=2):
+
+| value      | n | offset | count bits | element bits                    | hex      |
+|------------|---|--------|------------|----------------------------------|----------|
+| `[7]`      | 1 | 0      | `00`       | `00000111`                       | `01c0`   |
+| `[7, 9]`   | 2 | 1      | `01`       | `00000111` `00001001`            | `41c240` |
+
+### `SEQUENCE (SIZE (n..n)) OF T` — fixed-size
+
+No length determinant is written — the count is fully determined by the constraint.
+Just the `n` elements follow, back to back.
+
+**Example** (`SEQUENCE (SIZE (2..2)) OF INTEGER (0..255)`):
+
+| value     | element bits            | hex    |
+|-----------|--------------------------|--------|
+| `[5, 6]`  | `00000101` `00000110`   | `0506` |
+
+### Element types
+
+The element's own type rules apply unchanged — a `SEQUENCE OF UTF8String` element
+is the usual unconstrained/SIZE-constrained UTF8String encoding (its own internal
+length determinant, distinct from the outer SEQUENCE OF's element-count determinant);
+a `SEQUENCE OF Track` (a named SEQUENCE type) element encodes exactly as that
+SEQUENCE's own field encoding, per the Type Reference rule above.
+
+**`Playlist` SEQUENCE encoding** (`tags SEQUENCE OF UTF8String, tracks SEQUENCE
+(SIZE (1..64)) OF Track, topThree SEQUENCE (SIZE (3..3)) OF Track`, where `Track
+::= SEQUENCE { title UTF8String }`): `tags` uses the unconstrained case above with
+UTF8String elements; `tracks` uses the range-constrained case (range=63, bit_count=6)
+with `Track` elements; `topThree` uses the fixed-size case (3 elements, no length
+bits) with `Track` elements. See `golden-tests/playlist/*.hex` for exact byte-level
+values verified against the `asn1tools` oracle.
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
