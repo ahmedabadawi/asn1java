@@ -230,4 +230,67 @@ class Asn1SemanticValidatorTest {
     assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
         .containsExactly("DEFAULT value 5 at Settings.volume is below the field's lower bound 10");
   }
+
+  @Test
+  void validate_WhenEnumeratedDefaultOnNonEnumeratedField_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Profile ::= SEQUENCE {
+                status INTEGER (0..2) DEFAULT active
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly(
+            "DEFAULT value at Profile.status is an enumeration identifier but the field is not ENUMERATED");
+  }
+
+  @Test
+  void validate_WhenEnumeratedDefaultIsNotADeclaredValue_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Profile ::= SEQUENCE {
+                status ENUMERATED { pending, active, inactive } DEFAULT unknown
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly(
+            "DEFAULT value 'unknown' at Profile.status is not a declared value of the field's ENUMERATED type");
+  }
+
+  @Test
+  void validate_WhenStringDefaultOnNonStringField_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Profile ::= SEQUENCE {
+                id INTEGER (0..255) DEFAULT "1"
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly(
+            "DEFAULT value at Profile.id is a string literal but the field is not a string type");
+  }
 }

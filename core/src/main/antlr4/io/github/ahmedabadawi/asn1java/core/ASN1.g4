@@ -41,6 +41,8 @@ defaultValue
     : MINUS? NUMBER
     | TRUE
     | FALSE
+    | STRING_LITERAL
+    | LOWER_IDENT
     ;
 
 fieldList
@@ -172,7 +174,8 @@ UPPER_IDENT : [A-Z] [a-zA-Z0-9-]*;      // ModuleNames, TypeNames
 LOWER_IDENT : [a-z] [a-zA-Z0-9-]*;      // fieldNames
 
 // Literals
-NUMBER      : [0-9]+;
+NUMBER         : [0-9]+;
+STRING_LITERAL : '"' (~["\r\n])* '"';
 
 // Ignored
 WS          : [ \t\r\n]+ -> skip;

@@ -13,6 +13,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
@@ -26,11 +27,14 @@ import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
+import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 
 import javax.lang.model.element.Modifier;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -181,6 +185,9 @@ final class CodecGenerator {
     if (field.optional()) {
       return CodeBlock.of("model.$N() != null", field.name());
     }
+    if (isStringEncoding(field.encoding())) {
+      return CodeBlock.of("!model.$N().equals($S)", field.name(), field.defaultStringValue());
+    }
     if (field.encoding() == Encoding.UNCONSTRAINED) {
       return CodeBlock.of("model.$N() != $LL", field.name(), field.defaultValue());
     }
@@ -188,6 +195,11 @@ final class CodecGenerator {
       return CodeBlock.of("model.$N() != $L", field.name(), field.defaultValue() != 0);
     }
     return CodeBlock.of("model.$N() != $L", field.name(), field.defaultValue());
+  }
+
+  private static boolean isStringEncoding(Encoding encoding) {
+    return encoding == Encoding.UTF8_STRING || encoding == Encoding.IA5_STRING
+        || encoding == Encoding.VISIBLE_STRING;
   }
 
   static void addFieldValidation(MethodSpec.Builder methodBuilder, EncodedField field) {
@@ -455,6 +467,12 @@ final class CodecGenerator {
       args[0] = mandatoryType.box();
       builder.addStatement(
           "$T $N = " + field.name() + "Present ? (" + rhsFormat + ") : null", args);
+    } else if (field.hasDefault() && isStringEncoding(field.encoding())) {
+      args[0] = mandatoryType;
+      Object[] withDefault = Arrays.copyOf(args, args.length + 1);
+      withDefault[args.length] = field.defaultStringValue();
+      builder.addStatement(
+          "$T $N = " + field.name() + "Present ? (" + rhsFormat + ") : $S", withDefault);
     } else if (field.hasDefault()) {
       args[0] = mandatoryType;
       builder.addStatement(
@@ -506,7 +524,7 @@ final class CodecGenerator {
               return encoded.withOptional(true);
             }
             return field.defaultValue() != null
-                ? encoded.withDefault(toDefaultLong(field.defaultValue()))
+                ? applyDefault(encoded, field.type(), field.defaultValue())
                 : encoded;
           })
           .collect(Collectors.toList());
@@ -587,10 +605,14 @@ final class CodecGenerator {
     return new EncodedField(name, 0, Encoding.ENUMERATED, bitCount, count - 1);
   }
 
-  private static long toDefaultLong(DefaultValueNode defaultValue) {
+  private static EncodedField applyDefault(EncodedField encoded, TypeNode type,
+      DefaultValueNode defaultValue) {
     return switch (defaultValue) {
-      case IntegerDefaultValueNode intDefault -> intDefault.value();
-      case BooleanDefaultValueNode boolDefault -> boolDefault.value() ? 1 : 0;
+      case IntegerDefaultValueNode intDefault -> encoded.withDefault(intDefault.value());
+      case BooleanDefaultValueNode boolDefault -> encoded.withDefault(boolDefault.value() ? 1 : 0);
+      case EnumeratedDefaultValueNode enumDefault -> encoded.withDefault(
+          ((EnumeratedTypeNode) type).values().indexOf(enumDefault.value()));
+      case StringDefaultValueNode stringDefault -> encoded.withStringDefault(stringDefault.value());
     };
   }
 
@@ -637,28 +659,34 @@ final class CodecGenerator {
 
   record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
       long upperBound, String referencedTypeName, boolean optional, boolean hasDefault,
-      long defaultValue) {
+      long defaultValue, String defaultStringValue) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
-      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false, false, 0);
+      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false, false, 0, null);
     }
 
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
-      this(name, lowerBound, encoding, bitCount, upperBound, null, false, false, 0);
+      this(name, lowerBound, encoding, bitCount, upperBound, null, false, false, 0, null);
     }
 
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound,
         String referencedTypeName) {
-      this(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName, false, false, 0);
+      this(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName, false, false, 0,
+          null);
     }
 
     EncodedField withOptional(boolean optionalValue) {
       return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
-          optionalValue, hasDefault, defaultValue);
+          optionalValue, hasDefault, defaultValue, defaultStringValue);
     }
 
     EncodedField withDefault(long defaultValueArg) {
       return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
-          optional, true, defaultValueArg);
+          optional, true, defaultValueArg, null);
+    }
+
+    EncodedField withStringDefault(String defaultStringValueArg) {
+      return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
+          optional, true, 0, defaultStringValueArg);
     }
   }
 }

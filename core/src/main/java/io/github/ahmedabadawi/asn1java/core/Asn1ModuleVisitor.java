@@ -6,6 +6,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.Bound;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
@@ -21,6 +22,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
@@ -123,6 +125,13 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     }
     if (context.FALSE() != null) {
       return new BooleanDefaultValueNode(false);
+    }
+    if (context.STRING_LITERAL() != null) {
+      String text = context.STRING_LITERAL().getText();
+      return new StringDefaultValueNode(text.substring(1, text.length() - 1));
+    }
+    if (context.LOWER_IDENT() != null) {
+      return new EnumeratedDefaultValueNode(context.LOWER_IDENT().getText());
     }
     int sign = context.MINUS() != null ? -1 : 1;
     long magnitude = Long.parseLong(context.NUMBER().getText());
