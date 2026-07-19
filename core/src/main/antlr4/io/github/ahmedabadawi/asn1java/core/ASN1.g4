@@ -18,11 +18,15 @@ typeAssignment
     : UPPER_IDENT ASSIGNMENT
       (sequenceType | choiceType | enumeratedType | integerType | utf8StringType
        | octetStringType | bitStringType | ia5StringType | visibleStringType
-       | nullType | booleanType)
+       | nullType | booleanType | sequenceOfType)
     ;
 
 sequenceType
     : SEQUENCE LBRACE sequenceFieldList RBRACE
+    ;
+
+sequenceOfType
+    : SEQUENCE sizeConstraint? OF fieldType
     ;
 
 choiceType
@@ -54,7 +58,7 @@ field
     ;
 
 fieldType
-    : integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType | typeReference
+    : integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType | sequenceOfType | typeReference
     ;
 
 typeReference
@@ -150,6 +154,7 @@ MIN         : 'MIN';
 SIZE        : 'SIZE';
 OCTET       : 'OCTET';
 BIT         : 'BIT';
+OF          : 'OF';
 NULL_TYPE     : 'NULL';
 IA5STRING     : 'IA5String';
 VISIBLESTRING : 'VisibleString';

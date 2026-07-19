@@ -293,4 +293,44 @@ class Asn1SemanticValidatorTest {
         .containsExactly(
             "DEFAULT value at Profile.id is a string literal but the field is not a string type");
   }
+
+  @Test
+  void validate_WhenSequenceOfSizeConstraintInverted_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Playlist ::= SEQUENCE {
+                tags SEQUENCE (SIZE (5..1)) OF INTEGER (0..MAX)
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message).first()
+        .asString().contains("Inverted constraint bounds at Playlist.tags");
+  }
+
+  @Test
+  void validate_WhenSequenceOfElementReferencesUnknownType_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Playlist ::= SEQUENCE {
+                tracks SEQUENCE OF Missing
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly("Unknown type reference 'Missing' in field Playlist.tracks[]");
+  }
 }

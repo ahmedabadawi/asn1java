@@ -20,6 +20,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceOfTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
@@ -65,6 +66,8 @@ public class Asn1SemanticValidator {
         case VisibleStringTypeNode visibleType ->
             visibleType.sizeConstraint().ifPresent(c -> checkConstraint(type.name(), c, errors));
         case EnumeratedTypeNode enumType -> checkEnumerated(type.name(), enumType, errors);
+        case SequenceOfTypeNode sequenceOfType ->
+            checkSequenceOf(type.name(), sequenceOfType, definedTypeNames, errors);
         case TypeReferenceNode ignored -> {
         }
       }
@@ -198,6 +201,8 @@ public class Asn1SemanticValidator {
       case VisibleStringTypeNode visibleType ->
           visibleType.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
       case EnumeratedTypeNode enumType -> checkEnumerated(location, enumType, errors);
+      case SequenceOfTypeNode sequenceOfType ->
+          checkSequenceOf(location, sequenceOfType, definedTypeNames, errors);
       case TypeReferenceNode ref -> {
         if (!definedTypeNames.contains(ref.typeName())) {
           errors.add(new ValidationError(
@@ -205,6 +210,12 @@ public class Asn1SemanticValidator {
         }
       }
     }
+  }
+
+  private void checkSequenceOf(String location, SequenceOfTypeNode sequenceOfType,
+      Set<String> definedTypeNames, List<ValidationError> errors) {
+    sequenceOfType.sizeConstraint().ifPresent(c -> checkConstraint(location, c, errors));
+    checkFieldType(location + "[]", sequenceOfType.elementType(), definedTypeNames, errors);
   }
 
   private void checkEnumerated(String location, EnumeratedTypeNode enumType,

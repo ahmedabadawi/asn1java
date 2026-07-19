@@ -17,6 +17,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import java.util.Optional;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceOfTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
@@ -522,5 +523,89 @@ class Asn1CodeGeneratorTest {
     String model = findFile(files, "record Outer").toString();
     assertThat(model).contains("== null");
     assertThat(model).contains("inner must not be null");
+  }
+
+  private static ModuleNode playlistModule() {
+    return new ModuleNode("PlaylistModule", List.of(
+        new TypeAssignmentNode("Track", new SequenceTypeNode(List.of(
+            new SequenceFieldNode("title", new Utf8StringTypeNode(Optional.empty()), false,
+                null)))),
+        new TypeAssignmentNode("Playlist", new SequenceTypeNode(List.of(
+            new SequenceFieldNode("tags",
+                new SequenceOfTypeNode(new Utf8StringTypeNode(Optional.empty()), Optional.empty()),
+                false, null),
+            new SequenceFieldNode("tracks",
+                new SequenceOfTypeNode(new TypeReferenceNode("Track"),
+                    Optional.of(new ConstraintNode(new NumberBound(1), new NumberBound(64)))),
+                false, null),
+            new SequenceFieldNode("topThree",
+                new SequenceOfTypeNode(new TypeReferenceNode("Track"),
+                    Optional.of(new ConstraintNode(new NumberBound(3), new NumberBound(3)))),
+                false, null))))));
+  }
+
+  @Test
+  void generate_sequenceOfFieldInSequence_producesListJavaType() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(playlistModule());
+    String model = findFile(files, "record Playlist").toString();
+    assertThat(model).contains("List<String> tags");
+    assertThat(model).contains("List<Track> tracks");
+    assertThat(model).contains("List<Track> topThree");
+  }
+
+  @Test
+  void generate_unconstrainedSequenceOfField_emitsMaxValueLengthBound() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(playlistModule());
+    String codec = findFile(files, "PlaylistCodec").toString();
+    assertThat(codec).contains(
+        "UperCodecSupport.encodeSequenceOf(out, model.tags(), 0, 9223372036854775807L");
+    assertThat(codec).contains("UperCodecSupport.encodeUtf8String(stream, item)");
+  }
+
+  @Test
+  void generate_boundedSequenceOfField_emitsRangeLengthBound() {
+    // SIZE(1..64): range=63, bitCount=6
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(playlistModule());
+    String codec = findFile(files, "PlaylistCodec").toString();
+    assertThat(codec).contains("UperCodecSupport.encodeSequenceOf(out, model.tracks(), 1, 64L");
+  }
+
+  @Test
+  void generate_sequenceOfField_delegatesElementEncodingToReferencedTypeCodec() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(playlistModule());
+    String codec = findFile(files, "PlaylistCodec").toString();
+    assertThat(codec).contains("new TrackCodec().encodeInto(stream, item)");
+    assertThat(codec).contains("new TrackCodec().decodeFrom(elementIn)");
+  }
+
+  @Test
+  void generate_boundedSequenceOfField_emitsSizeRangeValidation() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(playlistModule());
+    String model = findFile(files, "record Playlist").toString();
+    assertThat(model).contains("must have between 1 and 64 elements");
+  }
+
+  @Test
+  void generate_fixedSizeSequenceOfField_emitsExactSizeValidationAndNoLengthBits() {
+    // SIZE(3..3): fixed size, no length bits written
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(playlistModule());
+    String model = findFile(files, "record Playlist").toString();
+    String codec = findFile(files, "PlaylistCodec").toString();
+    assertThat(model).contains("must have exactly 3 elements");
+    assertThat(codec).contains("UperCodecSupport.encodeSequenceOf(out, model.topThree(), 3, 3L");
+  }
+
+  @Test
+  void generate_topLevelSequenceOfType_producesListWrapperRecord() {
+    var module = new ModuleNode("Types", List.of(
+        new TypeAssignmentNode("Track", new SequenceTypeNode(List.of(
+            new SequenceFieldNode("title", new Utf8StringTypeNode(Optional.empty()), false,
+                null)))),
+        new TypeAssignmentNode("TrackList",
+            new SequenceOfTypeNode(new TypeReferenceNode("Track"), Optional.empty()))));
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
+    String model = findFile(files, "record TrackList").toString();
+    assertThat(model).contains("public record TrackList(");
+    assertThat(model).contains("List<Track> value");
   }
 }

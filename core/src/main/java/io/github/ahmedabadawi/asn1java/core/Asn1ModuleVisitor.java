@@ -21,6 +21,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ModuleNode;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.SequenceOfTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
@@ -71,6 +72,8 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.visibleStringType();
     } else if (context.nullType() != null) {
       typeContext = context.nullType();
+    } else if (context.sequenceOfType() != null) {
+      typeContext = context.sequenceOfType();
     } else {
       typeContext = context.booleanType();
     }
@@ -158,6 +161,8 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
       typeContext = context.visibleStringType();
     } else if (context.enumeratedType() != null) {
       typeContext = context.enumeratedType();
+    } else if (context.sequenceOfType() != null) {
+      typeContext = context.sequenceOfType();
     } else {
       return new TypeReferenceNode(context.typeReference().UPPER_IDENT().getText());
     }
@@ -224,6 +229,15 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
         ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
         : Optional.empty();
     return new BitStringTypeNode(sizeConstraint);
+  }
+
+  @Override
+  public SequenceOfTypeNode visitSequenceOfType(ASN1Parser.SequenceOfTypeContext context) {
+    TypeNode elementType = resolveFieldType(context.fieldType());
+    Optional<ConstraintNode> sizeConstraint = context.sizeConstraint() != null
+        ? Optional.of(parseSizeConstraint(context.sizeConstraint()))
+        : Optional.empty();
+    return new SequenceOfTypeNode(elementType, sizeConstraint);
   }
 
   private ConstraintNode parseSizeConstraint(ASN1Parser.SizeConstraintContext context) {
