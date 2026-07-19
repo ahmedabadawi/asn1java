@@ -1,0 +1,6 @@
+spec:    spec/settings.asn
+type:    Settings
+input:   examples/settings/valid-1.json
+hex:     0040
+bytes:   2
+bits:    16 (byte-padded)
