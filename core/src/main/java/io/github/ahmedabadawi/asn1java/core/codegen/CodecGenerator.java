@@ -262,6 +262,12 @@ final class CodecGenerator {
           .addStatement("throw new $T($S)", IllegalArgumentException.class,
               field.name() + " must be >= " + field.lowerBound())
           .endControlFlow();
+      if (field.upperBound() != Long.MAX_VALUE) {
+        methodBuilder.beginControlFlow("if ($N > $L)", field.name(), (int) field.upperBound())
+            .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                field.name() + " must be <= " + (int) field.upperBound())
+            .endControlFlow();
+      }
     }
   }
 
@@ -411,8 +417,7 @@ final class CodecGenerator {
                   throw new IllegalArgumentException("nested SEQUENCE not supported");
               case ChoiceTypeNode ignored ->
                   throw new IllegalArgumentException("nested CHOICE not supported");
-              case EnumeratedTypeNode enumType ->
-                  new EncodedField(javaName, 0, Encoding.ENUMERATED, enumBitCount(enumType));
+              case EnumeratedTypeNode enumType -> toEncodedField(javaName, enumType);
               case TypeReferenceNode ref ->
                   new EncodedField(javaName, 0, Encoding.TYPE_REFERENCE, 0, Long.MAX_VALUE,
                       ref.typeName());
@@ -429,8 +434,7 @@ final class CodecGenerator {
       case NullTypeNode ignored -> List.of();
       case Ia5StringTypeNode ia5Type -> List.of(toEncodedField("value", ia5Type));
       case VisibleStringTypeNode visibleType -> List.of(toEncodedField("value", visibleType));
-      case EnumeratedTypeNode enumType ->
-          List.of(new EncodedField("value", 0, Encoding.ENUMERATED, enumBitCount(enumType)));
+      case EnumeratedTypeNode enumType -> List.of(toEncodedField("value", enumType));
       case TypeReferenceNode ignored ->
           throw new IllegalArgumentException(
               "top-level TypeReferenceNode is not a valid type assignment body");
@@ -491,9 +495,10 @@ final class CodecGenerator {
     return new EncodedField(name, lb, Encoding.OCTET_STRING, bitCount, ub);
   }
 
-  private static int enumBitCount(EnumeratedTypeNode enumType) {
+  private static EncodedField toEncodedField(String name, EnumeratedTypeNode enumType) {
     int count = enumType.values().size();
-    return count <= 1 ? 0 : Integer.SIZE - Integer.numberOfLeadingZeros(count - 1);
+    int bitCount = count <= 1 ? 0 : Integer.SIZE - Integer.numberOfLeadingZeros(count - 1);
+    return new EncodedField(name, 0, Encoding.ENUMERATED, bitCount, count - 1);
   }
 
   private static EncodedField toEncodedField(String name, IntegerTypeNode intType) {
