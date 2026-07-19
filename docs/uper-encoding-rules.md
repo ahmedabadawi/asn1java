@@ -495,6 +495,38 @@ An absent `OPTIONAL` field contributes nothing beyond its own preamble bit.
 
 ---
 
+## SEQUENCE — DEFAULT components (§11.5)
+
+A `DEFAULT` component shares the same preamble mechanism as `OPTIONAL`
+(previous section) — it gets a presence bit in the preamble bitmap — but
+the bit means something different: `1` if the value **differs** from the
+declared default, `0` if the value **equals** the default. When the bit is
+`0`, no value bits are written at all; the decoder reconstructs the field
+by substituting the default value.
+
+**Steps:**
+1. Collect the SEQUENCE's `OPTIONAL`/`DEFAULT` components, in declaration
+   order (same preamble as the previous section).
+2. For each `DEFAULT` component, write `1` in the preamble if the value is
+   different from the default, `0` if it equals the default.
+3. Encode the fields themselves in declaration order: mandatory fields
+   always; a `DEFAULT` field only if its preamble bit was `1` — using that
+   field's own type encoding.
+4. On decode, if a `DEFAULT` field's preamble bit is `0`, no bits are read
+   for it; its value is the declared default.
+
+**Example** (`Settings ::= SEQUENCE { id INTEGER (0..255), volume INTEGER
+(0..100) DEFAULT 50, muted BOOLEAN DEFAULT FALSE }`; `id` is an 8-bit
+constrained whole number; `volume` has range 100, bit_count = 7, gated by a
+1-bit preamble; `muted` is a 1-bit boolean, gated by a 1-bit preamble):
+
+| input                          | preamble | id bits    | volume bits | muted bit | hex      |
+|---------------------------------|----------|------------|-------------|-----------|----------|
+| id=1, volume=50 (=default), muted=false (=default) | `00` | `00000001` | (none) | (none) | `0040`   |
+| id=2, volume=80 (≠default), muted=true (≠default)  | `11` | `00000010` | `1010000` | `1` | `c0a840` |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
