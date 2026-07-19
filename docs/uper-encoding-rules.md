@@ -525,6 +525,28 @@ constrained whole number; `volume` has range 100, bit_count = 7, gated by a
 | id=1, volume=50 (=default), muted=false (=default) | `00` | `00000001` | (none) | (none) | `0040`   |
 | id=2, volume=80 (≠default), muted=true (≠default)  | `11` | `00000010` | `1010000` | `1` | `c0a840` |
 
+**DEFAULT on `ENUMERATED` and string types** (`UTF8String`/`IA5String`/
+`VisibleString`): the mechanism above is unchanged — the only thing that
+varies per type is what "equals the default" means:
+- `ENUMERATED`: compare the selected value's **zero-based ordinal** to the
+  default's ordinal (not the identifier text). The value itself, when
+  present, still encodes as the usual ordinal constrained-whole-number
+  (§13).
+- String types: compare the string **value** (not byte length or any
+  other proxy). The value itself, when present, still encodes exactly as
+  the type's own unconstrained/SIZE-constrained rules (see the UTF8String/
+  IA5String/VisibleString sections above).
+
+**Example** (`Profile ::= SEQUENCE { id INTEGER (0..255), status
+ENUMERATED { pending, active, inactive } DEFAULT active, nickname
+UTF8String DEFAULT "anonymous" }`; `status` has 3 values, bit_count = 2,
+default ordinal = 1 (`active`); `nickname` is unconstrained UTF8String):
+
+| input                                                          | preamble | id bits    | status bits | nickname bits                | hex                |
+|------------------------------------------------------------------|----------|------------|-------------|-------------------------------|--------------------|
+| id=1, status=active (=default), nickname="anonymous" (=default)  | `00`     | `00000001` | (none)      | (none)                         | `0040`             |
+| id=2, status=pending (ordinal 0, ≠default), nickname="Alice" (≠default) | `11` | `00000010` | `00`        | `00000101` + 5 UTF-8 bytes    | `c0805416c6963650` |
+
 ---
 
 ## Adding new rules
