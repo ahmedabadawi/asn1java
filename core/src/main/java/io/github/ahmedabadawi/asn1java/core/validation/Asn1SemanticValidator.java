@@ -1,10 +1,13 @@
 package io.github.ahmedabadawi.asn1java.core.validation;
 
+import io.github.ahmedabadawi.asn1java.core.ast.BooleanDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
@@ -87,12 +90,51 @@ public class Asn1SemanticValidator {
         errors.add(
             new ValidationError("Duplicate field name '" + field.name() + "' in type " + typeName));
       }
-      if (field.optional() && field.type() instanceof NullTypeNode) {
+      if ((field.optional() || field.defaultValue() != null)
+          && field.type() instanceof NullTypeNode) {
         errors.add(new ValidationError(
-            "Field '%s' in type %s cannot be OPTIONAL on a NULL type"
+            "Field '%s' in type %s cannot be OPTIONAL or DEFAULT on a NULL type"
                 .formatted(field.name(), typeName)));
       }
+      if (field.defaultValue() != null) {
+        checkDefaultValue(typeName + "." + field.name(), field.type(), field.defaultValue(),
+            errors);
+      }
       checkFieldType(typeName + "." + field.name(), field.type(), definedTypeNames, errors);
+    }
+  }
+
+  private void checkDefaultValue(String location, TypeNode type, DefaultValueNode defaultValue,
+      List<ValidationError> errors) {
+    switch (defaultValue) {
+      case IntegerDefaultValueNode intDefault -> {
+        if (!(type instanceof IntegerTypeNode intType)) {
+          errors.add(new ValidationError(
+              "DEFAULT value at %s is an integer literal but the field is not INTEGER"
+                  .formatted(location)));
+          return;
+        }
+        ConstraintNode constraint = intType.constraint();
+        if (constraint.lowerBound() instanceof NumberBound lowerBound
+            && intDefault.value() < lowerBound.value()) {
+          errors.add(new ValidationError(
+              "DEFAULT value %d at %s is below the field's lower bound %d"
+                  .formatted(intDefault.value(), location, lowerBound.value())));
+        }
+        if (constraint.upperBound() instanceof NumberBound upperBound
+            && intDefault.value() > upperBound.value()) {
+          errors.add(new ValidationError(
+              "DEFAULT value %d at %s exceeds the field's upper bound %d"
+                  .formatted(intDefault.value(), location, upperBound.value())));
+        }
+      }
+      case BooleanDefaultValueNode ignored -> {
+        if (!(type instanceof BooleanTypeNode)) {
+          errors.add(new ValidationError(
+              "DEFAULT value at %s is a boolean literal but the field is not BOOLEAN"
+                  .formatted(location)));
+        }
+      }
     }
   }
 

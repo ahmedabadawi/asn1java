@@ -8,11 +8,14 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import io.github.ahmedabadawi.asn1java.core.ast.BooleanDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
@@ -22,7 +25,6 @@ import io.github.ahmedabadawi.asn1java.core.ast.NullTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MinBound;
 import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
-import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
@@ -169,10 +171,23 @@ final class CodecGenerator {
         .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
         .addParameter(ParameterSpec.builder(modelClass, "model").build());
 
-    fields.stream().filter(EncodedField::optional).forEach(field ->
-        methodBuilder.addStatement("out.writeBits(model.$N() != null ? 1 : 0, 1)", field.name()));
+    fields.stream().filter(field -> field.optional() || field.hasDefault()).forEach(field ->
+        methodBuilder.addStatement("out.writeBits($L ? 1 : 0, 1)", presenceCondition(field)));
     fields.forEach(field -> addEncodeStatement(methodBuilder, field, targetPackage));
     return methodBuilder.build();
+  }
+
+  private static CodeBlock presenceCondition(EncodedField field) {
+    if (field.optional()) {
+      return CodeBlock.of("model.$N() != null", field.name());
+    }
+    if (field.encoding() == Encoding.UNCONSTRAINED) {
+      return CodeBlock.of("model.$N() != $LL", field.name(), field.defaultValue());
+    }
+    if (field.encoding() == Encoding.BOOLEAN) {
+      return CodeBlock.of("model.$N() != $L", field.name(), field.defaultValue() != 0);
+    }
+    return CodeBlock.of("model.$N() != $L", field.name(), field.defaultValue());
   }
 
   static void addFieldValidation(MethodSpec.Builder methodBuilder, EncodedField field) {
@@ -311,7 +326,7 @@ final class CodecGenerator {
         .returns(modelClass)
         .addParameter(ParameterSpec.builder(UPER_INPUT_STREAM, "in").build());
 
-    fields.stream().filter(EncodedField::optional).forEach(field ->
+    fields.stream().filter(field -> field.optional() || field.hasDefault()).forEach(field ->
         methodBuilder.addStatement("boolean $LPresent = in.readBits(1) != 0", field.name()));
     fields.forEach(field -> addDecodeStatement(methodBuilder, field, targetPackage));
 
@@ -324,8 +339,8 @@ final class CodecGenerator {
 
   private static void addEncodeStatement(MethodSpec.Builder builder, EncodedField field,
       String targetPackage) {
-    if (field.optional()) {
-      builder.beginControlFlow("if (model.$N() != null)", field.name());
+    if (field.optional() || field.hasDefault()) {
+      builder.beginControlFlow("if ($L)", presenceCondition(field));
     }
     switch (field.encoding()) {
       case SEMI_CONSTRAINED -> {
@@ -371,7 +386,7 @@ final class CodecGenerator {
       case TYPE_REFERENCE -> builder.addStatement("new $T().encodeInto(out, model.$N())",
           ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), field.name());
     }
-    if (field.optional()) {
+    if (field.optional() || field.hasDefault()) {
       builder.endControlFlow();
     }
   }
@@ -440,10 +455,25 @@ final class CodecGenerator {
       args[0] = mandatoryType.box();
       builder.addStatement(
           "$T $N = " + field.name() + "Present ? (" + rhsFormat + ") : null", args);
+    } else if (field.hasDefault()) {
+      args[0] = mandatoryType;
+      builder.addStatement(
+          "$T $N = " + field.name() + "Present ? (" + rhsFormat + ") : "
+              + defaultLiteral(field, mandatoryType), args);
     } else {
       args[0] = mandatoryType;
       builder.addStatement("$T $N = " + rhsFormat, args);
     }
+  }
+
+  private static String defaultLiteral(EncodedField field, TypeName mandatoryType) {
+    if (mandatoryType.equals(TypeName.BOOLEAN)) {
+      return field.defaultValue() != 0 ? "true" : "false";
+    }
+    if (mandatoryType.equals(TypeName.LONG)) {
+      return field.defaultValue() + "L";
+    }
+    return String.valueOf(field.defaultValue());
   }
 
   static List<EncodedField> collectFields(TypeAssignmentNode typeAssignment) {
@@ -470,9 +500,14 @@ final class CodecGenerator {
               case EnumeratedTypeNode enumType -> toEncodedField(javaName, enumType);
               case TypeReferenceNode ref ->
                   new EncodedField(javaName, 0, Encoding.TYPE_REFERENCE, 0, Long.MAX_VALUE,
-                      ref.typeName(), false);
+                      ref.typeName());
             };
-            return field.optional() ? encoded.withOptional(true) : encoded;
+            if (field.optional()) {
+              return encoded.withOptional(true);
+            }
+            return field.defaultValue() != null
+                ? encoded.withDefault(toDefaultLong(field.defaultValue()))
+                : encoded;
           })
           .collect(Collectors.toList());
       case ChoiceTypeNode ignored -> throw new IllegalStateException(
@@ -552,6 +587,13 @@ final class CodecGenerator {
     return new EncodedField(name, 0, Encoding.ENUMERATED, bitCount, count - 1);
   }
 
+  private static long toDefaultLong(DefaultValueNode defaultValue) {
+    return switch (defaultValue) {
+      case IntegerDefaultValueNode intDefault -> intDefault.value();
+      case BooleanDefaultValueNode boolDefault -> boolDefault.value() ? 1 : 0;
+    };
+  }
+
   private static EncodedField toEncodedField(String name, IntegerTypeNode intType) {
     ConstraintNode constraint = intType.constraint();
     if (constraint == null) {
@@ -594,18 +636,29 @@ final class CodecGenerator {
   }
 
   record EncodedField(String name, int lowerBound, Encoding encoding, int bitCount,
-      long upperBound, String referencedTypeName, boolean optional) {
+      long upperBound, String referencedTypeName, boolean optional, boolean hasDefault,
+      long defaultValue) {
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount) {
-      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false);
+      this(name, lowerBound, encoding, bitCount, Long.MAX_VALUE, null, false, false, 0);
     }
 
     EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound) {
-      this(name, lowerBound, encoding, bitCount, upperBound, null, false);
+      this(name, lowerBound, encoding, bitCount, upperBound, null, false, false, 0);
+    }
+
+    EncodedField(String name, int lowerBound, Encoding encoding, int bitCount, long upperBound,
+        String referencedTypeName) {
+      this(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName, false, false, 0);
     }
 
     EncodedField withOptional(boolean optionalValue) {
       return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
-          optionalValue);
+          optionalValue, hasDefault, defaultValue);
+    }
+
+    EncodedField withDefault(long defaultValueArg) {
+      return new EncodedField(name, lowerBound, encoding, bitCount, upperBound, referencedTypeName,
+          optional, true, defaultValueArg);
     }
   }
 }

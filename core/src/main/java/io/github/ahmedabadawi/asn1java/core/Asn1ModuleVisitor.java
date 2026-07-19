@@ -1,11 +1,14 @@
 package io.github.ahmedabadawi.asn1java.core;
 
+import io.github.ahmedabadawi.asn1java.core.ast.BooleanDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Bound;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Ia5StringTypeNode;
@@ -109,7 +112,21 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     String name = context.LOWER_IDENT().getText();
     TypeNode type = resolveFieldType(context.fieldType());
     boolean optional = context.OPTIONAL() != null;
-    return new SequenceFieldNode(name, type, optional);
+    DefaultValueNode defaultValue =
+        context.defaultValue() != null ? parseDefaultValue(context.defaultValue()) : null;
+    return new SequenceFieldNode(name, type, optional, defaultValue);
+  }
+
+  private DefaultValueNode parseDefaultValue(ASN1Parser.DefaultValueContext context) {
+    if (context.TRUE() != null) {
+      return new BooleanDefaultValueNode(true);
+    }
+    if (context.FALSE() != null) {
+      return new BooleanDefaultValueNode(false);
+    }
+    int sign = context.MINUS() != null ? -1 : 1;
+    long magnitude = Long.parseLong(context.NUMBER().getText());
+    return new IntegerDefaultValueNode(sign * magnitude);
   }
 
   private TypeNode resolveFieldType(ASN1Parser.FieldTypeContext context) {

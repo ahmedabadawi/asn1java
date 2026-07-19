@@ -128,4 +128,106 @@ class Asn1SemanticValidatorTest {
     assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message).first()
         .asString().contains("Inverted constraint bounds at Version.major");
   }
+
+  @Test
+  void validate_WhenOptionalAppliedToNullField_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Marker ::= SEQUENCE {
+                tag NULL OPTIONAL
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly("Field 'tag' in type Marker cannot be OPTIONAL or DEFAULT on a NULL type");
+  }
+
+  @Test
+  void validate_WhenIntegerDefaultOnBooleanField_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Settings ::= SEQUENCE {
+                muted BOOLEAN DEFAULT 1
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly(
+            "DEFAULT value at Settings.muted is an integer literal but the field is not INTEGER");
+  }
+
+  @Test
+  void validate_WhenBooleanDefaultOnIntegerField_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Settings ::= SEQUENCE {
+                volume INTEGER (0..100) DEFAULT FALSE
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly(
+            "DEFAULT value at Settings.volume is a boolean literal but the field is not BOOLEAN");
+  }
+
+  @Test
+  void validate_WhenIntegerDefaultExceedsUpperBound_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Settings ::= SEQUENCE {
+                volume INTEGER (0..100) DEFAULT 150
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly("DEFAULT value 150 at Settings.volume exceeds the field's upper bound 100");
+  }
+
+  @Test
+  void validate_WhenIntegerDefaultBelowLowerBound_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+            Settings ::= SEQUENCE {
+                volume INTEGER (10..100) DEFAULT 5
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly("DEFAULT value 5 at Settings.volume is below the field's lower bound 10");
+  }
 }
