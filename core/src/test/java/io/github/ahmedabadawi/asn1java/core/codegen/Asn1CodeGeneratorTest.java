@@ -168,6 +168,18 @@ class Asn1CodeGeneratorTest {
   }
 
   @Test
+  void generate_constrainedField_emitsUpperBoundValidation() {
+    // INTEGER (0..255): lb=0, ub=255
+    var module = new ModuleNode("M", List.of(new TypeAssignmentNode("Foo", new SequenceTypeNode(
+        List.of(new FieldNode("x",
+            new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255)))))))));
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(module);
+    String model = findFile(files, "record Foo").toString();
+    assertThat(model).contains("> 255");
+    assertThat(model).contains("must be <= 255");
+  }
+
+  @Test
   void generate_utf8StringFieldInSequence_producesJavaStringType() {
     var module = new ModuleNode("PersonInfo", List.of(new TypeAssignmentNode("Person",
         new SequenceTypeNode(List.of(new FieldNode("name", new Utf8StringTypeNode(Optional.empty())))))));
