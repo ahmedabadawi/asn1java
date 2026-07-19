@@ -9,6 +9,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ImportedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
@@ -29,6 +30,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +46,9 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
   public ModuleNode visitModuleDefinition(ASN1Parser.ModuleDefinitionContext context) {
     String name = context.moduleIdentifier().UPPER_IDENT().getText();
     constants = parseConstants(context);
+    List<ImportedTypeNode> imports = context.importsClause() != null
+        ? parseImports(context.importsClause())
+        : List.of();
     List<TypeAssignmentNode> types = context.memberList().moduleMember().stream()
         .filter(member -> member.typeAssignment() != null)
         .map(member -> switch (visit(member.typeAssignment())) {
@@ -51,7 +56,18 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
           default -> throw new IllegalStateException(
               "unexpected node for typeAssignment: " + member.getText());
         }).toList();
-    return new ModuleNode(name, types);
+    return new ModuleNode(name, types, imports);
+  }
+
+  private List<ImportedTypeNode> parseImports(ASN1Parser.ImportsClauseContext context) {
+    return context.symbolsFromModule().stream()
+        .flatMap(group -> {
+          List<TerminalNode> identifiers = group.UPPER_IDENT();
+          String moduleName = identifiers.getLast().getText();
+          return identifiers.subList(0, identifiers.size() - 1).stream()
+              .map(typeIdent -> new ImportedTypeNode(typeIdent.getText(), moduleName));
+        })
+        .toList();
   }
 
   private Map<String, Long> parseConstants(ASN1Parser.ModuleDefinitionContext context) {
