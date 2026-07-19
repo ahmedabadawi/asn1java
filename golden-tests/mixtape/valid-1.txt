@@ -1,0 +1,6 @@
+spec:    spec/mixtape.asn spec/playlist.asn
+type:    Mixtape
+input:   examples/mixtape/valid-1.json
+hex:     09444a2053616d706c65106536f6e67204106536f6e6720420
+bytes:   25
+bits:    200 (byte-padded)
