@@ -12,7 +12,7 @@ public final class TrackCodec {
     return out.toByteArray();
   }
 
-  void encodeInto(UperOutputStream out, Track model) {
+  public void encodeInto(UperOutputStream out, Track model) {
     UperCodecSupport.encodeUtf8String(out, model.title());
   }
 
@@ -20,7 +20,7 @@ public final class TrackCodec {
     return decodeFrom(new UperInputStream(data));
   }
 
-  Track decodeFrom(UperInputStream in) {
+  public Track decodeFrom(UperInputStream in) {
     return new Track(UperCodecSupport.decodeUtf8String(in));
   }
 }
