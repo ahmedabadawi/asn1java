@@ -1,0 +1,13 @@
+{
+  "tags": [],
+  "tracks": [
+    { "title": "Alpha" },
+    { "title": "Beta" },
+    { "title": "Gamma" }
+  ],
+  "topThree": [
+    { "title": "X" },
+    { "title": "Y" },
+    { "title": "Z" }
+  ]
+}
