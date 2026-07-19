@@ -34,7 +34,13 @@ sequenceFieldList
     ;
 
 sequenceField
-    : LOWER_IDENT fieldType OPTIONAL?
+    : LOWER_IDENT fieldType (OPTIONAL | DEFAULT defaultValue)?
+    ;
+
+defaultValue
+    : MINUS? NUMBER
+    | TRUE
+    | FALSE
     ;
 
 fieldList
@@ -147,6 +153,9 @@ IA5STRING     : 'IA5String';
 VISIBLESTRING : 'VisibleString';
 STRING        : 'STRING';
 OPTIONAL      : 'OPTIONAL';
+DEFAULT       : 'DEFAULT';
+TRUE          : 'TRUE';
+FALSE         : 'FALSE';
 
 // Punctuation
 ASSIGNMENT  : '::=';
