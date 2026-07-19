@@ -15,6 +15,15 @@ Most ASN.1 tooling is either a black box of decades-old generated code or requir
 | `handwritten-codec` | Reference UPER codec for `simple.asn` and `score.asn`, written by hand to establish and verify golden tests                              |
 | `plugin`            | Maven plugin (`asn1java-maven-plugin`) — runs at `generate-sources`, parses `.asn` files, generates model records and UPER codec classes |
 | `sample`            | End-to-end consumer of the plugin; approval tests verify generated codec output matches the golden-test hex files byte-for-byte          |
+| `coverage-report`   | Aggregates JaCoCo coverage data from every module into one combined HTML report                                                          |
+
+## Running tests with coverage
+
+```bash
+mvn clean verify
+```
+
+Runs the full reactor build with JaCoCo enabled. Each module gets its own report at `<module>/target/site/jacoco/index.html`, and a combined report across all modules is written to `coverage-report/target/site/jacoco-aggregate/index.html`.
 
 ## Using the plugin
 
