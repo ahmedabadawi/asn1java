@@ -23,6 +23,8 @@ import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 
 import javax.lang.model.element.Modifier;
+import java.util.Iterator;
+import java.util.List;
 
 final class ModelGenerator {
 
@@ -35,17 +37,26 @@ final class ModelGenerator {
 
   static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
     TypeSpec record = switch (typeAssignment.type()) {
-      case SequenceTypeNode seq -> buildSequenceRecord(targetPackage, typeAssignment.name(), seq);
-      case ChoiceTypeNode choice -> buildChoiceInterface(targetPackage, typeAssignment.name(), choice);
-      case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
+      case SequenceTypeNode seq -> buildSequenceRecord(targetPackage, typeAssignment.name(), seq,
+          CodecGenerator.collectFields(typeAssignment));
+      case ChoiceTypeNode choice ->
+          buildChoiceInterface(targetPackage, typeAssignment.name(), choice);
+      case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
       case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
-      case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
-      case OctetStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
-      case BitStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name());
+      case Utf8StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
+      case OctetStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
+      case BitStringTypeNode ignored -> buildByteArrayWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
       case NullTypeNode ignored -> buildEmptyRecord(typeAssignment.name());
-      case Ia5StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
-      case VisibleStringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name());
-      case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name());
+      case Ia5StringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
+      case VisibleStringTypeNode ignored -> buildUtf8StringWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
+      case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name(),
+          CodecGenerator.collectFields(typeAssignment).get(0));
       case TypeReferenceNode ignored ->
           throw new IllegalArgumentException(
               "top-level TypeReferenceNode is not a valid type assignment body: "
@@ -55,14 +66,17 @@ final class ModelGenerator {
   }
 
   private static TypeSpec buildSequenceRecord(String targetPackage, String name,
-      SequenceTypeNode seq) {
-    MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
+      SequenceTypeNode seq, List<CodecGenerator.EncodedField> fields) {
+    MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
+        .addModifiers(Modifier.PUBLIC);
+    Iterator<CodecGenerator.EncodedField> fieldIterator = fields.iterator();
     for (FieldNode field : seq.fields()) {
       if (field.type() instanceof NullTypeNode) {
         continue;
       }
       TypeName javaType = resolveFieldJavaType(targetPackage, field.type());
       ctorBuilder.addParameter(javaType, CodegenUtils.toJavaFieldName(field.name()));
+      CodecGenerator.addFieldValidation(ctorBuilder, fieldIterator.next());
     }
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
@@ -99,10 +113,17 @@ final class ModelGenerator {
         .addModifiers(Modifier.PUBLIC, Modifier.SEALED);
     for (FieldNode alternative : choice.alternatives()) {
       String variantName = CodegenUtils.toJavaClassName(alternative.name());
-      MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder();
+      MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
+          .addModifiers(Modifier.PUBLIC);
       if (!(alternative.type() instanceof NullTypeNode)) {
         TypeName payloadType = resolveFieldJavaType(targetPackage, alternative.type());
         ctorBuilder.addParameter(payloadType, "value");
+        if (alternative.type() instanceof TypeReferenceNode) {
+          ctorBuilder.beginControlFlow("if (value == null)")
+              .addStatement("throw new $T($S)", IllegalArgumentException.class,
+                  "value must not be null")
+              .endControlFlow();
+        }
       }
       interfaceBuilder.addType(TypeSpec.recordBuilder(variantName)
           .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -113,13 +134,15 @@ final class ModelGenerator {
     return interfaceBuilder.build();
   }
 
-  private static TypeSpec buildIntegerWrapperRecord(String name) {
-    MethodSpec ctor = MethodSpec.constructorBuilder()
-        .addParameter(TypeName.INT, "value")
-        .build();
+  private static TypeSpec buildIntegerWrapperRecord(String name,
+      CodecGenerator.EncodedField field) {
+    MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
+        .addModifiers(Modifier.PUBLIC)
+        .addParameter(TypeName.INT, "value");
+    CodecGenerator.addFieldValidation(ctorBuilder, field);
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
-        .recordConstructor(ctor)
+        .recordConstructor(ctorBuilder.build())
         .build();
   }
 
@@ -133,13 +156,15 @@ final class ModelGenerator {
         .build();
   }
 
-  private static TypeSpec buildUtf8StringWrapperRecord(String name) {
-    MethodSpec ctor = MethodSpec.constructorBuilder()
-        .addParameter(STRING, "value")
-        .build();
+  private static TypeSpec buildUtf8StringWrapperRecord(String name,
+      CodecGenerator.EncodedField field) {
+    MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
+        .addModifiers(Modifier.PUBLIC)
+        .addParameter(STRING, "value");
+    CodecGenerator.addFieldValidation(ctorBuilder, field);
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
-        .recordConstructor(ctor)
+        .recordConstructor(ctorBuilder.build())
         .build();
   }
 
@@ -151,13 +176,15 @@ final class ModelGenerator {
         .build();
   }
 
-  private static TypeSpec buildByteArrayWrapperRecord(String name) {
-    MethodSpec ctor = MethodSpec.constructorBuilder()
-        .addParameter(BYTE_ARRAY, "value")
-        .build();
+  private static TypeSpec buildByteArrayWrapperRecord(String name,
+      CodecGenerator.EncodedField field) {
+    MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
+        .addModifiers(Modifier.PUBLIC)
+        .addParameter(BYTE_ARRAY, "value");
+    CodecGenerator.addFieldValidation(ctorBuilder, field);
     return TypeSpec.recordBuilder(name)
         .addModifiers(Modifier.PUBLIC)
-        .recordConstructor(ctor)
+        .recordConstructor(ctorBuilder.build())
         .build();
   }
 }
