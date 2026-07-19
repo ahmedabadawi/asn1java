@@ -7,9 +7,15 @@ set -euo pipefail
 # JSON inputs against an ASN.1 spec, producing golden-test artifacts.
 #
 # Usage:
-#   ./generate.sh --spec <file.asn> --type <RootType> --input <a.json> [--input <b.json> ...]
+#   ./generate.sh --spec <file.asn> [--spec <other.asn> ...] --type <RootType> \
+#       --input <a.json> [--input <b.json> ...]
 #
-# Outputs (written to ../golden-tests/<spec-name>/):
+# Repeating --spec compiles all of them together (asn1tools.compile_files),
+# which is required when the root type's module IMPORTS from another module —
+# the golden-test directory name is taken from the *first* --spec (the
+# "primary"/importing module being tested).
+#
+# Outputs (written to ../golden-tests/<first-spec-name>/):
 #   <basename>.uper   raw binary UPER encoding
 #   <basename>.hex    hex string (no spaces), e.g. "01010100"
 #   <basename>.txt    human-readable summary
@@ -20,31 +26,34 @@ set -euo pipefail
 #       --input ../examples/simple/valid-1.json \
 #       --input ../examples/simple/valid-2.json \
 #       --input ../examples/simple/invalid-1.json
+#
+#   ./generate.sh --spec ../spec/mixtape.asn --spec ../spec/playlist.asn \
+#       --type Mixtape --input ../examples/mixtape/valid-1.json
 # ─────────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_NAME="asn1tools-uper-oracle"
 
-ASN_FILE=""
+ASN_FILES=()
 ROOT_TYPE=""
 JSON_FILES=()
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --spec)   ASN_FILE="$2";      shift 2 ;;
+        --spec)   ASN_FILES+=("$2");  shift 2 ;;
         --type)   ROOT_TYPE="$2";     shift 2 ;;
         --input)  JSON_FILES+=("$2"); shift 2 ;;
         --help|-h)
-            echo "Usage: ./generate.sh --spec <file.asn> --type <RootType> --input <a.json> [--input <b.json> ...]"
+            echo "Usage: ./generate.sh --spec <file.asn> [--spec <other.asn> ...] --type <RootType> --input <a.json> [--input <b.json> ...]"
             echo ""
             echo "Options:"
-            echo "  --spec   Path to the ASN.1 spec file"
+            echo "  --spec   Path to an ASN.1 spec file (repeatable — compiled together, for IMPORTS)"
             echo "  --type   Root PDU type name"
             echo "  --input  JSON input file (repeatable)"
             echo ""
-            echo "Outputs written to: <project-root>/golden-tests/<spec-name>/"
+            echo "Outputs written to: <project-root>/golden-tests/<first-spec-name>/"
             exit 0
             ;;
         *)
@@ -56,8 +65,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-if [[ -z "$ASN_FILE" ]]; then
-    echo "ERROR: --spec is required"
+if [[ ${#ASN_FILES[@]} -eq 0 ]]; then
+    echo "ERROR: at least one --spec is required"
     exit 1
 fi
 
@@ -71,10 +80,12 @@ if [[ ${#JSON_FILES[@]} -eq 0 ]]; then
     exit 1
 fi
 
-if [[ ! -f "$ASN_FILE" ]]; then
-    echo "ERROR: spec file not found: $ASN_FILE"
-    exit 1
-fi
+for f in "${ASN_FILES[@]}"; do
+    if [[ ! -f "$f" ]]; then
+        echo "ERROR: spec file not found: $f"
+        exit 1
+    fi
+done
 
 for f in "${JSON_FILES[@]}"; do
     if [[ ! -f "$f" ]]; then
@@ -94,10 +105,15 @@ _relpath() {
     python3 -c "import os,sys; print(os.path.relpath(sys.argv[2], sys.argv[1]))" "$1" "$2"
 }
 
-SPEC_NAME=$(basename "$ASN_FILE" .asn)
+SPEC_NAME=$(basename "${ASN_FILES[0]}" .asn)
 OUTPUT_DIR="$PROJECT_ROOT/golden-tests/$SPEC_NAME"
 
-ASN_REL="$(_relpath "$PROJECT_ROOT" "$ASN_FILE")"
+ASN_RELS=()
+for f in "${ASN_FILES[@]}"; do
+    ASN_RELS+=("$(_relpath "$PROJECT_ROOT" "$f")")
+done
+ASN_RELS_JOINED=$(IFS=,; echo "${ASN_RELS[*]}")
+
 JSON_RELS=()
 for f in "${JSON_FILES[@]}"; do
     JSON_RELS+=("$(_relpath "$PROJECT_ROOT" "$f")")
@@ -116,7 +132,7 @@ echo ""
 docker run --rm \
     --volume "$PROJECT_ROOT:/work" \
     "$IMAGE_NAME" \
-    "$ASN_REL" \
+    "$ASN_RELS_JOINED" \
     "$ROOT_TYPE" \
     "${JSON_RELS[@]}"
 
