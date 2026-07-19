@@ -1,0 +1,9 @@
+ProfileModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Profile ::= SEQUENCE {
+        id       INTEGER (0..255),
+        status   ENUMERATED { pending, active, inactive } DEFAULT active,
+        nickname UTF8String DEFAULT "anonymous"
+    }
+
+END
