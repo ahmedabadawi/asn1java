@@ -46,9 +46,9 @@ class FlagsCodecTest {
   }
 
   @Test
-  void encode_WhenBitsWrongSize_ShouldThrowIllegalArgumentException() {
+  void construct_WhenBitsWrongSize_ShouldThrowIllegalArgumentException() {
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Flags(HEX.parseHex("b2b3"))));
+        () -> new Flags(HEX.parseHex("b2b3")));
     assertThat(thrown).hasMessageContaining("bits must be exactly 8 bits");
   }
 }

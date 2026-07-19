@@ -96,78 +96,60 @@ class ScoreCodecTest {
   }
 
   @Test
-  void encode_WhenLevelIsBelowMin_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(0, 0, 0);
-
+  void construct_WhenLevelIsBelowMin_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(0, 0, 0));
 
     // Then
     assertThat(thrown).hasMessageContaining("level must be >= 1");
   }
 
   @Test
-  void encode_WhenLevelIsAboveMax_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(11, 0, 0);
-
+  void construct_WhenLevelIsAboveMax_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(11, 0, 0));
 
     // Then
     assertThat(thrown).hasMessageContaining("level must be <= 10");
   }
 
   @Test
-  void encode_WhenPointsIsNegative_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(1, -1, 0);
-
+  void construct_WhenPointsIsNegative_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(1, -1, 0));
 
     // Then
     assertThat(thrown).hasMessageContaining("points must be >= 0");
   }
 
   @Test
-  void encode_WhenPointsExceedsMax_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(1, 1000, 0);
-
+  void construct_WhenPointsExceedsMax_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(1, 1000, 0));
 
     // Then
     assertThat(thrown).hasMessageContaining("points must be <= 999");
   }
 
   @Test
-  void encode_WhenOffsetIsBelowMin_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(1, 0, -11);
-
+  void construct_WhenOffsetIsBelowMin_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(1, 0, -11));
 
     // Then
     assertThat(thrown).hasMessageContaining("offset must be >= -10");
   }
 
   @Test
-  void encode_WhenOffsetIsAboveMax_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(1, 0, 11);
-
+  void construct_WhenOffsetIsAboveMax_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(1, 0, 11));
 
     // Then
     assertThat(thrown).hasMessageContaining("offset must be <= 10");

@@ -46,9 +46,9 @@ class IdentifierCodecTest {
   }
 
   @Test
-  void encode_WhenCodeIsEmpty_ShouldThrowIllegalArgumentException() {
+  void construct_WhenCodeIsEmpty_ShouldThrowIllegalArgumentException() {
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Identifier("", "hi")));
+        () -> new Identifier("", "hi"));
     assertThat(thrown).hasMessageContaining("code length must be in range 1..8");
   }
 }

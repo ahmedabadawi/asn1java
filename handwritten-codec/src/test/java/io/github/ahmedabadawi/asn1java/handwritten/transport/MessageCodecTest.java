@@ -93,18 +93,54 @@ class MessageCodecTest {
   }
 
   @Test
-  void encode_WhenMessageTypeTooShort_ShouldThrowIllegalArgumentException() {
-    // Given
-    var message = new Message(
-        new ProtocolVersion(new VersionSingle(1), new VersionSingle(0)),
-        new MessageType("x"),
-        new Payload(0, new byte[]{(byte) 0xff}));
-
+  void construct_WhenProtocolVersionIsNull_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(message));
+        () -> new Message(null, new MessageType("hi"), new Payload(0, new byte[]{(byte) 0xff})));
 
     // Then
-    assertThat(thrown).hasMessageContaining("length must be >= 2");
+    assertThat(thrown).hasMessageContaining("protocolVersion must not be null");
+  }
+
+  @Test
+  void construct_WhenMessageTypeIsNull_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new Message(new ProtocolVersion(new VersionSingle(1), new VersionSingle(0)), null,
+            new Payload(0, new byte[]{(byte) 0xff})));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("messageType must not be null");
+  }
+
+  @Test
+  void construct_WhenPayloadIsNull_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new Message(new ProtocolVersion(new VersionSingle(1), new VersionSingle(0)),
+            new MessageType("hi"), null));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("payload must not be null");
+  }
+
+  @Test
+  void construct_WhenProtocolVersionMajorIsNull_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new ProtocolVersion(null, new VersionSingle(0)));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("major must not be null");
+  }
+
+  @Test
+  void construct_WhenProtocolVersionMinorIsNull_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new ProtocolVersion(new VersionSingle(1), null));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("minor must not be null");
   }
 }

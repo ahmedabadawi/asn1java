@@ -12,12 +12,6 @@ public final class VersionSingleCodec {
   }
 
   void encodeInto(UperOutputStream out, VersionSingle model) {
-    if (model.value() < 0) {
-      throw new IllegalArgumentException("value must be >= 0");
-    }
-    if (model.value() > 255) {
-      throw new IllegalArgumentException("value must be <= 255");
-    }
     out.writeBits(model.value(), 8);
   }
 

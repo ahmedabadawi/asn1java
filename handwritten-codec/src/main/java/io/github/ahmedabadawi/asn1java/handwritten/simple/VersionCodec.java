@@ -6,9 +6,6 @@ import io.github.ahmedabadawi.asn1java.runtime.uper.UperOutputStream;
 public class VersionCodec {
 
     public byte[] encode(Version version) {
-        if (version.major() < 0 || version.minor() < 0) {
-            throw new IllegalArgumentException("major and minor must be >= 0");
-        }
         UperOutputStream out = new UperOutputStream();
         encodeSemiConstrainedInt(out, version.major());
         encodeSemiConstrainedInt(out, version.minor());

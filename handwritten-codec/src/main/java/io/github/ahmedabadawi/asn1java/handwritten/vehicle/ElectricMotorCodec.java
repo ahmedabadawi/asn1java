@@ -12,12 +12,6 @@ public final class ElectricMotorCodec {
   }
 
   void encodeInto(UperOutputStream out, ElectricMotor model) {
-    if (model.powerKw() < 0) {
-      throw new IllegalArgumentException("powerKw must be >= 0");
-    }
-    if (model.batteryKwh() < 0) {
-      throw new IllegalArgumentException("batteryKwh must be >= 0");
-    }
     out.writeBits(model.powerKw(), 10);
     out.writeBits(model.batteryKwh(), 9);
   }

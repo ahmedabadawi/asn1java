@@ -16,21 +16,6 @@ public final class PayloadCodec {
   }
 
   void encodeInto(UperOutputStream out, Payload model) {
-    if (model.messageTimeToLive() < 0) {
-      throw new IllegalArgumentException("messageTimeToLive must be >= 0");
-    }
-    if (model.messageTimeToLive() > 2621430) {
-      throw new IllegalArgumentException("messageTimeToLive must be <= 2621430");
-    }
-    if (model.data() == null) {
-      throw new IllegalArgumentException("data must not be null");
-    }
-    if (model.data().length < 1) {
-      throw new IllegalArgumentException("data length must be >= 1");
-    }
-    if (model.data().length > 65536) {
-      throw new IllegalArgumentException("data length must be <= 65536");
-    }
     out.writeBits(model.messageTimeToLive(), MESSAGE_TIME_TO_LIVE_BITS);
     UperCodecSupport.encodeOctetString(out, model.data(), 1, 65536);
   }

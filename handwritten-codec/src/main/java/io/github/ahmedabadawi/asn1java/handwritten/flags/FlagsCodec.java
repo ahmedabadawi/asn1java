@@ -9,13 +9,6 @@ public class FlagsCodec {
   private static final int BITS_SIZE = 8;
 
   public byte[] encode(Flags flags) {
-    if (flags.bits() == null) {
-      throw new IllegalArgumentException("bits must not be null");
-    }
-    if (flags.bits().length * 8 != BITS_SIZE) {
-      throw new IllegalArgumentException(
-          "bits must be exactly %d bits (%d bytes)".formatted(BITS_SIZE, BITS_SIZE / 8));
-    }
     var out = new UperOutputStream();
     UperCodecSupport.encodeBitString(out, flags.bits(), BITS_SIZE);
     return out.toByteArray();
