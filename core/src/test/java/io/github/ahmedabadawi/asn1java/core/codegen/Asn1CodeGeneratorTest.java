@@ -5,6 +5,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.BooleanDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
@@ -17,6 +18,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import java.util.Optional;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
@@ -447,6 +449,61 @@ class Asn1CodeGeneratorTest {
     assertThat(codec).contains(": 50");
     assertThat(codec).contains("mutedPresent ?");
     assertThat(codec).contains(": false");
+  }
+
+  private static ModuleNode profileModule() {
+    return new ModuleNode("ProfileModule", List.of(new TypeAssignmentNode("Profile",
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("id",
+                new IntegerTypeNode(new ConstraintNode(new NumberBound(0), new NumberBound(255))),
+                false, null),
+            new SequenceFieldNode("status",
+                new EnumeratedTypeNode(List.of("pending", "active", "inactive")), false,
+                new EnumeratedDefaultValueNode("active")),
+            new SequenceFieldNode("nickname", new Utf8StringTypeNode(Optional.empty()), false,
+                new StringDefaultValueNode("anonymous")))))));
+  }
+
+  @Test
+  void generate_enumeratedDefaultField_staysUnboxedJavaType() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(profileModule());
+    String model = findFile(files, "record Profile").toString();
+    assertThat(model).contains("int status");
+    assertThat(model).contains("String nickname");
+  }
+
+  @Test
+  void generate_enumeratedDefaultField_emitsPreambleBitComparingToOrdinal() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(profileModule());
+    String codec = findFile(files, "ProfileCodec").toString();
+    assertThat(codec).contains("out.writeBits(model.status() != 1 ? 1 : 0, 1)");
+    assertThat(codec).contains("if (model.status() != 1)");
+  }
+
+  @Test
+  void generate_enumeratedDefaultField_emitsPresenceGuardedDecodeWithOrdinalFallback() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(profileModule());
+    String codec = findFile(files, "ProfileCodec").toString();
+    assertThat(codec).contains("boolean statusPresent = in.readBits(1) != 0");
+    assertThat(codec).contains("statusPresent ?");
+    assertThat(codec).contains(": 1");
+  }
+
+  @Test
+  void generate_stringDefaultField_emitsPreambleBitComparingByEquality() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(profileModule());
+    String codec = findFile(files, "ProfileCodec").toString();
+    assertThat(codec).contains("out.writeBits(!model.nickname().equals(\"anonymous\") ? 1 : 0, 1)");
+    assertThat(codec).contains("if (!model.nickname().equals(\"anonymous\"))");
+  }
+
+  @Test
+  void generate_stringDefaultField_emitsPresenceGuardedDecodeWithStringFallback() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(profileModule());
+    String codec = findFile(files, "ProfileCodec").toString();
+    assertThat(codec).contains("boolean nicknamePresent = in.readBits(1) != 0");
+    assertThat(codec).contains("nicknamePresent ?");
+    assertThat(codec).contains(": \"anonymous\"");
   }
 
   private static ModuleNode nestedReferenceModule() {

@@ -5,6 +5,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.BooleanTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ChoiceTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
+import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
@@ -20,6 +21,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.NumberBound;
 import io.github.ahmedabadawi.asn1java.core.ast.OctetStringTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceFieldNode;
 import io.github.ahmedabadawi.asn1java.core.ast.SequenceTypeNode;
+import io.github.ahmedabadawi.asn1java.core.ast.StringDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeAssignmentNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
@@ -132,6 +134,25 @@ public class Asn1SemanticValidator {
         if (!(type instanceof BooleanTypeNode)) {
           errors.add(new ValidationError(
               "DEFAULT value at %s is a boolean literal but the field is not BOOLEAN"
+                  .formatted(location)));
+        }
+      }
+      case EnumeratedDefaultValueNode enumDefault -> {
+        if (!(type instanceof EnumeratedTypeNode enumType)) {
+          errors.add(new ValidationError(
+              "DEFAULT value at %s is an enumeration identifier but the field is not ENUMERATED"
+                  .formatted(location)));
+        } else if (!enumType.values().contains(enumDefault.value())) {
+          errors.add(new ValidationError(
+              "DEFAULT value '%s' at %s is not a declared value of the field's ENUMERATED type"
+                  .formatted(enumDefault.value(), location)));
+        }
+      }
+      case StringDefaultValueNode ignored -> {
+        if (!(type instanceof Utf8StringTypeNode || type instanceof Ia5StringTypeNode
+            || type instanceof VisibleStringTypeNode)) {
+          errors.add(new ValidationError(
+              "DEFAULT value at %s is a string literal but the field is not a string type"
                   .formatted(location)));
         }
       }
