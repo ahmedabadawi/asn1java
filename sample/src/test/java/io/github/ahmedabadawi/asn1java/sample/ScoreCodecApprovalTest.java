@@ -96,39 +96,30 @@ class ScoreCodecApprovalTest {
   }
 
   @Test
-  void encode_WhenLevelIsBelowMin_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(0, 0, 0);
-
+  void construct_WhenLevelIsBelowMin_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(0, 0, 0));
 
     // Then
     assertThat(thrown).hasMessageContaining("level must be >= 1");
   }
 
   @Test
-  void encode_WhenPointsIsNegative_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(1, -1, 0);
-
+  void construct_WhenPointsIsNegative_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(1, -1, 0));
 
     // Then
     assertThat(thrown).hasMessageContaining("points must be >= 0");
   }
 
   @Test
-  void encode_WhenOffsetIsBelowMin_ShouldThrowIllegalArgumentException() {
-    // Given
-    var score = new Score(1, 0, -11);
-
+  void construct_WhenOffsetIsBelowMin_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(score));
+        () -> new Score(1, 0, -11));
 
     // Then
     assertThat(thrown).hasMessageContaining("offset must be >= -10");
