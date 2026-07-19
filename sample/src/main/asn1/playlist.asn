@@ -1,0 +1,13 @@
+PlaylistModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Track ::= SEQUENCE {
+        title UTF8String
+    }
+
+    Playlist ::= SEQUENCE {
+        tags     SEQUENCE OF UTF8String,
+        tracks   SEQUENCE (SIZE (1..64)) OF Track,
+        topThree SEQUENCE (SIZE (3..3)) OF Track
+    }
+
+END

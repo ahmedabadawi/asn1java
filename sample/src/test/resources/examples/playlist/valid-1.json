@@ -1,0 +1,11 @@
+{
+  "tags": ["rock", "pop"],
+  "tracks": [
+    { "title": "Song A" }
+  ],
+  "topThree": [
+    { "title": "T1" },
+    { "title": "T2" },
+    { "title": "T3" }
+  ]
+}
