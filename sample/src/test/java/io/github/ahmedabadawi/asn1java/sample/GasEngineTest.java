@@ -17,4 +17,14 @@ class GasEngineTest {
     // Then
     assertThat(thrown).hasMessageContaining("cylinders must be >= 1");
   }
+
+  @Test
+  void construct_WhenCylindersExceedsMax_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new GasEngine(1600, 17));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("cylinders must be <= 16");
+  }
 }

@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.HexFormat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class VehicleCodecApprovalTest {
 
@@ -111,5 +112,15 @@ class VehicleCodecApprovalTest {
     // Then
     assertThat(decoded.id()).isEqualTo(42);
     assertThat(decoded.propulsion()).isEqualTo(new Propulsion.None());
+  }
+
+  @Test
+  void construct_WhenIdExceedsMax_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new Vehicle(65536, new Propulsion.None()));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("id must be <= 65535");
   }
 }
