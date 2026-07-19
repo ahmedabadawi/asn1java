@@ -1,0 +1,6 @@
+spec:    spec/limits.asn
+type:    Settings
+input:   examples/limits/valid-1.json
+hex:     64408d8deeac80ac6d8cac2e40
+bytes:   13
+bits:    104 (byte-padded)
