@@ -110,6 +110,16 @@ class VehicleCodecTest {
   }
 
   @Test
+  void construct_WhenIdExceedsMax_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new Vehicle(65536, new Propulsion.None()));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("id must be <= 65535");
+  }
+
+  @Test
   void construct_WhenPropulsionIsNull_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
