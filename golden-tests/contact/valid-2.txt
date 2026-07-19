@@ -1,0 +1,6 @@
+spec:    spec/contact.asn
+type:    Contact
+input:   examples/contact/valid-2.json
+hex:     0100
+bytes:   2
+bits:    16 (byte-padded)
