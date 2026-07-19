@@ -48,17 +48,17 @@ class PacketCodecTest {
   }
 
   @Test
-  void encode_WhenPayloadExceedsSizeLimit_ShouldThrowIllegalArgumentException() {
+  void construct_WhenPayloadExceedsSizeLimit_ShouldThrowIllegalArgumentException() {
     var payload = HEX.parseHex("0102030405");
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Packet(payload)));
+        () -> new Packet(payload));
     assertThat(thrown).hasMessageContaining("payload length must be in range 1..4");
   }
 
   @Test
-  void encode_WhenPayloadIsEmpty_ShouldThrowIllegalArgumentException() {
+  void construct_WhenPayloadIsEmpty_ShouldThrowIllegalArgumentException() {
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Packet(new byte[0])));
+        () -> new Packet(new byte[0]));
     assertThat(thrown).hasMessageContaining("payload length must be in range 1..4");
   }
 }

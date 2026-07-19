@@ -44,9 +44,9 @@ class LabelCodecTest {
   }
 
   @Test
-  void encode_WhenTextIsEmpty_ShouldThrowIllegalArgumentException() {
+  void construct_WhenTextIsEmpty_ShouldThrowIllegalArgumentException() {
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Label("")));
+        () -> new Label(""));
     assertThat(thrown).hasMessageContaining("text length must be >= 1");
   }
 }

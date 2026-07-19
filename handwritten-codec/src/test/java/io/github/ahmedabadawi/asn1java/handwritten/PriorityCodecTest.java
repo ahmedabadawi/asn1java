@@ -46,16 +46,16 @@ class PriorityCodecTest {
   }
 
   @Test
-  void encode_WhenLevelExceedsMax_ShouldThrowIllegalArgumentException() {
+  void construct_WhenLevelExceedsMax_ShouldThrowIllegalArgumentException() {
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Priority(3, 0)));
+        () -> new Priority(3, 0));
     assertThat(thrown).hasMessageContaining("level must be in range 0..2");
   }
 
   @Test
-  void encode_WhenAdjustmentExceedsUpperBound_ShouldThrowIllegalArgumentException() {
+  void construct_WhenAdjustmentExceedsUpperBound_ShouldThrowIllegalArgumentException() {
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(new Priority(0, 1)));
+        () -> new Priority(0, 1));
     assertThat(thrown).hasMessageContaining("adjustment must be <= 0");
   }
 }

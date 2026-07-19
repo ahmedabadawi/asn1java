@@ -1,6 +1,7 @@
 package io.github.ahmedabadawi.asn1java.handwritten;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import io.github.ahmedabadawi.asn1java.handwritten.simple.Version;
 import io.github.ahmedabadawi.asn1java.handwritten.simple.VersionCodec;
@@ -24,26 +25,31 @@ class VersionCodecTest {
 
     @Test
     void encodeValid1() throws IOException {
-        assertEquals(goldenHex("valid-1"), HEX.formatHex(CODEC.encode(new Version(1, 0))));
+        assertThat(HEX.formatHex(CODEC.encode(new Version(1, 0)))).isEqualTo(goldenHex("valid-1"));
     }
 
     @Test
     void encodeValid2() throws IOException {
-        assertEquals(goldenHex("valid-2"), HEX.formatHex(CODEC.encode(new Version(2, 24))));
+        assertThat(HEX.formatHex(CODEC.encode(new Version(2, 24)))).isEqualTo(goldenHex("valid-2"));
     }
 
     @Test
     void decodeValid1() throws IOException {
-        assertEquals(new Version(1, 0), CODEC.decode(HEX.parseHex(goldenHex("valid-1"))));
+        assertThat(CODEC.decode(HEX.parseHex(goldenHex("valid-1")))).isEqualTo(new Version(1, 0));
     }
 
     @Test
     void decodeValid2() throws IOException {
-        assertEquals(new Version(2, 24), CODEC.decode(HEX.parseHex(goldenHex("valid-2"))));
+        assertThat(CODEC.decode(HEX.parseHex(goldenHex("valid-2")))).isEqualTo(new Version(2, 24));
     }
 
     @Test
-    void encodeRejectNegative() {
-        assertThrows(IllegalArgumentException.class, () -> CODEC.encode(new Version(-1, 0)));
+    void construct_WhenMajorIsNegative_ShouldThrowIllegalArgumentException() {
+        // When
+        var thrown = catchThrowableOfType(IllegalArgumentException.class,
+                () -> new Version(-1, 0));
+
+        // Then
+        assertThat(thrown).hasMessageContaining("major and minor must be >= 0");
     }
 }

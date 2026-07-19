@@ -96,26 +96,20 @@ class StatusCodecTest {
   }
 
   @Test
-  void encode_WhenStateIsNegative_ShouldThrowIllegalArgumentException() {
-    // Given
-    var status = new Status(-1);
-
+  void construct_WhenStateIsNegative_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(status));
+        () -> new Status(-1));
 
     // Then
     assertThat(thrown).hasMessageContaining("state must be in range");
   }
 
   @Test
-  void encode_WhenStateExceedsMax_ShouldThrowIllegalArgumentException() {
-    // Given
-    var status = new Status(3);
-
+  void construct_WhenStateExceedsMax_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(status));
+        () -> new Status(3));
 
     // Then
     assertThat(thrown).hasMessageContaining("state must be in range");

@@ -14,9 +14,6 @@ public final class VehicleCodec {
   }
 
   void encodeInto(UperOutputStream out, Vehicle model) {
-    if (model.id() < 0) {
-      throw new IllegalArgumentException("id must be >= 0");
-    }
     out.writeBits(model.id(), 16);
     propulsionCodec.encodeInto(out, model.propulsion());
   }

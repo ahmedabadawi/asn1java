@@ -12,12 +12,6 @@ public final class GasEngineCodec {
   }
 
   void encodeInto(UperOutputStream out, GasEngine model) {
-    if (model.displacementCc() < 0) {
-      throw new IllegalArgumentException("displacementCc must be >= 0");
-    }
-    if (model.cylinders() < 1) {
-      throw new IllegalArgumentException("cylinders must be >= 1");
-    }
     out.writeBits(model.displacementCc(), 13);
     out.writeBits(model.cylinders() - 1, 4);
   }

@@ -110,15 +110,32 @@ class VehicleCodecTest {
   }
 
   @Test
-  void encode_WhenCylindersIsZero_ShouldThrowIllegalArgumentException() {
-    // Given
-    var vehicle = new Vehicle(1, new Propulsion.Gasoline(new GasEngine(1600, 0)));
-
+  void construct_WhenPropulsionIsNull_ShouldThrowIllegalArgumentException() {
     // When
     var thrown = catchThrowableOfType(IllegalArgumentException.class,
-        () -> CODEC.encode(vehicle));
+        () -> new Vehicle(1, null));
 
     // Then
-    assertThat(thrown).hasMessageContaining("cylinders must be >= 1");
+    assertThat(thrown).hasMessageContaining("propulsion must not be null");
+  }
+
+  @Test
+  void construct_WhenGasolineValueIsNull_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new Propulsion.Gasoline(null));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("value must not be null");
+  }
+
+  @Test
+  void construct_WhenElectricValueIsNull_ShouldThrowIllegalArgumentException() {
+    // When
+    var thrown = catchThrowableOfType(IllegalArgumentException.class,
+        () -> new Propulsion.Electric(null));
+
+    // Then
+    assertThat(thrown).hasMessageContaining("value must not be null");
   }
 }
