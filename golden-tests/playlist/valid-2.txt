@@ -1,0 +1,6 @@
+spec:    spec/playlist.asn
+type:    Playlist
+input:   examples/playlist/valid-2.json
+hex:     00081505b1c1a184110995d184151d85b5b584056005640568
+bytes:   25
+bits:    200 (byte-padded)
