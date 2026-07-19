@@ -464,6 +464,37 @@ and `ElectricMotor ::= SEQUENCE { powerKw INTEGER (0..1000), batteryKwh INTEGER 
 
 ---
 
+## SEQUENCE — OPTIONAL components (preamble bitmap, §19)
+
+A SEQUENCE with one or more `OPTIONAL` (or `DEFAULT` — see the next section)
+components carries a **preamble**: one presence bit per such component,
+written before any field content, in declaration order. Mandatory
+components do not get a preamble bit. After the preamble, fields are
+encoded in declaration order as usual — mandatory fields are always
+encoded; an `OPTIONAL` field is encoded only if its presence bit was `1`.
+An absent `OPTIONAL` field contributes nothing beyond its own preamble bit.
+
+**Steps:**
+1. Collect the SEQUENCE's `OPTIONAL`/`DEFAULT` components, in declaration
+   order.
+2. Write one bit per such component: `1` if the field is present
+   (non-null), `0` if absent.
+3. Encode the fields themselves in declaration order: mandatory fields
+   always; `OPTIONAL` fields only if their presence bit was `1` — using
+   that field's own type encoding, immediately following the preamble
+   with no gap.
+
+**Example** (`Contact ::= SEQUENCE { id INTEGER (0..255), age INTEGER
+(0..255) OPTIONAL }`; `id` is an 8-bit constrained whole number, range 255;
+`age` is the same, gated by a 1-bit preamble):
+
+| input               | preamble | id bits    | age bits   | hex      |
+|---------------------|----------|------------|------------|----------|
+| id=1, age=30        | `1`      | `00000001` | `00011110` | `808f00` |
+| id=2, age absent    | `0`      | `00000010` | (none)     | `0100`   |
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
