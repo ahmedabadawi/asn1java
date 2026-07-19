@@ -1,6 +1,10 @@
 package io.github.ahmedabadawi.asn1java.runtime.uper;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 public final class UperCodecSupport {
 
@@ -193,5 +197,54 @@ public final class UperCodecSupport {
       utf8[i] = (byte) in.readBits(8);
     }
     return new String(utf8, StandardCharsets.UTF_8);
+  }
+
+  // X.691 §19: SEQUENCE OF — element count length determinant, then each element in order.
+  // ub == Long.MAX_VALUE means unconstrained (no SIZE): §10.7 1-or-2-byte determinant, same
+  // as unconstrained OCTET STRING/UTF8String. Otherwise a constrained whole number offset from
+  // lb, in bitCount bits (0 bits, i.e. no length written, when lb == ub). The element type
+  // varies per call site, so the element itself is read/written via the supplied callback.
+  public static <T> void encodeSequenceOf(UperOutputStream out, List<T> value, int lb, long ub,
+      BiConsumer<UperOutputStream, T> elementEncoder) {
+    int size = value.size();
+    if (ub == Long.MAX_VALUE) {
+      if (size < 128) {
+        out.writeBits(size, 8);
+      } else {
+        out.writeBits(0x80 | (size >> 8), 8);
+        out.writeBits(size & 0xFF, 8);
+      }
+    } else {
+      int range = (int) ub - lb;
+      if (range > 0) {
+        int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+        out.writeBits(size - lb, bitCount);
+      }
+    }
+    for (T item : value) {
+      elementEncoder.accept(out, item);
+    }
+  }
+
+  public static <T> List<T> decodeSequenceOf(UperInputStream in, int lb, long ub,
+      Function<UperInputStream, T> elementDecoder) {
+    int size;
+    if (ub == Long.MAX_VALUE) {
+      int first = (int) in.readBits(8);
+      size = (first & 0x80) == 0 ? first : ((first & 0x3F) << 8) | (int) in.readBits(8);
+    } else {
+      int range = (int) ub - lb;
+      if (range > 0) {
+        int bitCount = Integer.SIZE - Integer.numberOfLeadingZeros(range);
+        size = (int) in.readBits(bitCount) + lb;
+      } else {
+        size = lb;
+      }
+    }
+    var result = new ArrayList<T>(size);
+    for (int i = 0; i < size; i++) {
+      result.add(elementDecoder.apply(in));
+    }
+    return result;
   }
 }
