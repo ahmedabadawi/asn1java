@@ -648,6 +648,30 @@ See `golden-tests/limits/*.hex` for exact byte-level values verified against the
 
 ---
 
+## IMPORTS ... FROM — cross-module type references (no wire-format impact)
+
+`IMPORTS Track FROM PlaylistModule;` at the top of a module makes a type defined
+in a *different* spec/module usable by name in the importing module, exactly as
+if it were a local `typeReference`.
+
+This is a **symbol-resolution and tooling feature only** — it has no effect
+whatsoever on the UPER bit-level encoding. A field of an imported type encodes
+exactly per the Type Reference rule above: the bit stream produced by encoding
+the field is identical to encoding the imported type's own value as a standalone
+message, with no tag, length prefix, or marker indicating the type came from
+another module.
+
+**`Mixtape` SEQUENCE encoding** (`MixtapeModule` imports `Track` from
+`PlaylistModule`; `Mixtape ::= SEQUENCE { curator UTF8String, tracks SEQUENCE
+(SIZE (1..10)) OF Track }`): `curator` is an ordinary unconstrained UTF8String;
+`tracks` is an ordinary range-constrained SEQUENCE OF (range 9, bit_count = 4) of
+`Track` elements — see the SEQUENCE OF and Type Reference sections above for the
+algorithms themselves. See `golden-tests/mixtape/*.hex` for exact byte-level
+values verified against the `asn1tools` oracle (compiled together with
+`spec/playlist.asn`, the exporting module).
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code
