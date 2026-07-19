@@ -22,11 +22,19 @@ typeAssignment
     ;
 
 sequenceType
-    : SEQUENCE LBRACE fieldList RBRACE
+    : SEQUENCE LBRACE sequenceFieldList RBRACE
     ;
 
 choiceType
     : CHOICE LBRACE fieldList RBRACE
+    ;
+
+sequenceFieldList
+    : sequenceField (COMMA sequenceField)*
+    ;
+
+sequenceField
+    : LOWER_IDENT fieldType OPTIONAL?
     ;
 
 fieldList
@@ -34,7 +42,11 @@ fieldList
     ;
 
 field
-    : LOWER_IDENT (integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType | typeReference)
+    : LOWER_IDENT fieldType
+    ;
+
+fieldType
+    : integerType | booleanType | utf8StringType | octetStringType | bitStringType | nullType | ia5StringType | visibleStringType | enumeratedType | typeReference
     ;
 
 typeReference
@@ -134,6 +146,7 @@ NULL_TYPE     : 'NULL';
 IA5STRING     : 'IA5String';
 VISIBLESTRING : 'VisibleString';
 STRING        : 'STRING';
+OPTIONAL      : 'OPTIONAL';
 
 // Punctuation
 ASSIGNMENT  : '::=';
