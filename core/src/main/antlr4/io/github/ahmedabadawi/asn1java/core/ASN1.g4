@@ -11,7 +11,16 @@ moduleIdentifier
     ;
 
 memberList
-    : typeAssignment*
+    : moduleMember*
+    ;
+
+moduleMember
+    : typeAssignment
+    | valueAssignment
+    ;
+
+valueAssignment
+    : LOWER_IDENT INTEGER ASSIGNMENT MINUS? NUMBER
     ;
 
 typeAssignment
@@ -128,11 +137,13 @@ constraint
 lowerBound
     : MINUS? NUMBER
     | MIN
+    | LOWER_IDENT
     ;
 
 upperBound
     : NUMBER
     | MAX
+    | LOWER_IDENT
     ;
 
 // Lexer Rules
