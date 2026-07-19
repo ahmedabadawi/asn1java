@@ -1,0 +1,6 @@
+spec:    spec/profile.asn
+type:    Profile
+input:   examples/profile/valid-2.json
+hex:     c0805416c6963650
+bytes:   8
+bits:    64 (byte-padded)
