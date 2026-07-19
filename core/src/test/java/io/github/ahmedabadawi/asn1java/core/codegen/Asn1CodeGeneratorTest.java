@@ -8,6 +8,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ImportedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.MaxBound;
@@ -26,8 +27,10 @@ import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class Asn1CodeGeneratorTest {
 
@@ -607,5 +610,58 @@ class Asn1CodeGeneratorTest {
     String model = findFile(files, "record TrackList").toString();
     assertThat(model).contains("public record TrackList(");
     assertThat(model).contains("List<Track> value");
+  }
+
+  private static ModuleNode trackModule() {
+    return new ModuleNode("TrackModule", List.of(new TypeAssignmentNode("Track",
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("title", new Utf8StringTypeNode(Optional.empty()), false,
+                null))))));
+  }
+
+  private static ModuleNode mixModule() {
+    return new ModuleNode("MixModule", List.of(new TypeAssignmentNode("Mix",
+        new SequenceTypeNode(List.of(
+            new SequenceFieldNode("track", new TypeReferenceNode("Track"), false, null))))),
+        List.of(new ImportedTypeNode("Track", "TrackModule")));
+  }
+
+  @Test
+  void generate_crossModuleImport_modelFieldReferencesExportingPackage() {
+    Function<String, String> moduleResolver =
+        moduleName -> "TrackModule".equals(moduleName) ? "io.example.trackmodule" : null;
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example"), moduleResolver)
+        .generate(mixModule());
+    String model = findFile(files, "record Mix").toString();
+    assertThat(model).contains("import io.example.trackmodule.Track;");
+    assertThat(model).contains("Track track");
+  }
+
+  @Test
+  void generate_crossModuleImport_codecDelegatesToExportingPackageCodec() {
+    Function<String, String> moduleResolver =
+        moduleName -> "TrackModule".equals(moduleName) ? "io.example.trackmodule" : null;
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example"), moduleResolver)
+        .generate(mixModule());
+    String codec = findFile(files, "MixCodec").toString();
+    assertThat(codec).contains("import io.example.trackmodule.TrackCodec;");
+    assertThat(codec).contains("new TrackCodec().encodeInto(out, model.track())");
+    assertThat(codec).contains("new TrackCodec().decodeFrom(in)");
+  }
+
+  @Test
+  void generate_localTypeReference_stillUsesOwnPackage() {
+    var files = new Asn1CodeGenerator(new JavaPackage("io.example")).generate(trackModule());
+    String model = findFile(files, "record Track").toString();
+    assertThat(model).contains("public record Track(");
+  }
+
+  @Test
+  void generate_crossModuleImport_whenModuleUnresolvable_throwsIllegalArgumentException() {
+    Function<String, String> moduleResolver = moduleName -> null;
+    var generator = new Asn1CodeGenerator(new JavaPackage("io.example"), moduleResolver);
+    assertThatThrownBy(() -> generator.generate(mixModule()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("TrackModule");
   }
 }

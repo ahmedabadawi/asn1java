@@ -38,6 +38,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import javax.lang.model.element.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 final class CodecGenerator {
@@ -56,9 +57,10 @@ final class CodecGenerator {
   private CodecGenerator() {
   }
 
-  static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
+  static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment,
+      Function<String, String> typePackageResolver) {
     if (typeAssignment.type() instanceof ChoiceTypeNode choice) {
-      return generateChoiceCodec(targetPackage, typeAssignment.name(), choice);
+      return generateChoiceCodec(targetPackage, typeAssignment.name(), choice, typePackageResolver);
     }
 
     ClassName modelClass = ClassName.get(targetPackage, typeAssignment.name());
@@ -68,15 +70,15 @@ final class CodecGenerator {
         TypeSpec.classBuilder(typeAssignment.name() + "Codec")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
             .addMethod(buildEncodeMethod(modelClass, fields, targetPackage))
-            .addMethod(buildEncodeIntoMethod(modelClass, fields, targetPackage))
+            .addMethod(buildEncodeIntoMethod(modelClass, fields, typePackageResolver))
             .addMethod(buildDecodeMethod(modelClass, fields, targetPackage))
-            .addMethod(buildDecodeFromMethod(modelClass, fields, targetPackage))
+            .addMethod(buildDecodeFromMethod(modelClass, fields, typePackageResolver))
             .build();
     return JavaFile.builder(targetPackage, codec).build();
   }
 
   private static JavaFile generateChoiceCodec(String targetPackage, String name,
-      ChoiceTypeNode choice) {
+      ChoiceTypeNode choice, Function<String, String> typePackageResolver) {
     ClassName modelClass = ClassName.get(targetPackage, name);
     int bitCount = choiceIndexBitCount(choice);
 
@@ -84,16 +86,19 @@ final class CodecGenerator {
         TypeSpec.classBuilder(name + "Codec")
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
             .addMethod(buildEncodeMethod(modelClass, List.of(), targetPackage))
-            .addMethod(buildChoiceEncodeIntoMethod(targetPackage, modelClass, choice, bitCount))
+            .addMethod(buildChoiceEncodeIntoMethod(typePackageResolver, modelClass, choice, bitCount))
             .addMethod(buildDecodeMethod(modelClass, List.of(), targetPackage))
-            .addMethod(buildChoiceDecodeFromMethod(targetPackage, modelClass, name, choice, bitCount))
+            .addMethod(
+                buildChoiceDecodeFromMethod(typePackageResolver, modelClass, name, choice, bitCount))
             .build();
     return JavaFile.builder(targetPackage, codec).build();
   }
 
-  private static MethodSpec buildChoiceEncodeIntoMethod(String targetPackage, ClassName modelClass,
-      ChoiceTypeNode choice, int bitCount) {
+  private static MethodSpec buildChoiceEncodeIntoMethod(
+      Function<String, String> typePackageResolver, ClassName modelClass, ChoiceTypeNode choice,
+      int bitCount) {
     MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("encodeInto")
+        .addModifiers(Modifier.PUBLIC)
         .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
         .addParameter(ParameterSpec.builder(modelClass, "model").build());
 
@@ -111,7 +116,7 @@ final class CodecGenerator {
         methodBuilder.beginControlFlow("if (model instanceof $T variant)", variantClassName)
             .addStatement("out.writeBits($L, $L)", index, bitCount)
             .addStatement("new $T().encodeInto(out, variant.value())",
-                ClassName.get(targetPackage, ref.typeName() + "Codec"))
+                ClassName.get(typePackageResolver.apply(ref.typeName()), ref.typeName() + "Codec"))
             .addStatement("return")
             .endControlFlow();
       } else {
@@ -124,8 +129,9 @@ final class CodecGenerator {
     return methodBuilder.build();
   }
 
-  private static MethodSpec buildChoiceDecodeFromMethod(String targetPackage, ClassName modelClass,
-      String name, ChoiceTypeNode choice, int bitCount) {
+  private static MethodSpec buildChoiceDecodeFromMethod(
+      Function<String, String> typePackageResolver, ClassName modelClass, String name,
+      ChoiceTypeNode choice, int bitCount) {
     CodeBlock.Builder switchBody = CodeBlock.builder();
     switchBody.add("return switch (index) {\n");
     List<FieldNode> alternatives = choice.alternatives();
@@ -137,7 +143,8 @@ final class CodecGenerator {
         switchBody.add("  case $L -> new $T();\n", index, variantClassName);
       } else if (alternative.type() instanceof TypeReferenceNode ref) {
         switchBody.add("  case $L -> new $T(new $T().decodeFrom(in));\n",
-            index, variantClassName, ClassName.get(targetPackage, ref.typeName() + "Codec"));
+            index, variantClassName,
+            ClassName.get(typePackageResolver.apply(ref.typeName()), ref.typeName() + "Codec"));
       } else {
         throw new IllegalArgumentException(
             "CHOICE alternative type not supported: " + alternative.type());
@@ -148,6 +155,7 @@ final class CodecGenerator {
     switchBody.add("};\n");
 
     return MethodSpec.methodBuilder("decodeFrom")
+        .addModifiers(Modifier.PUBLIC)
         .returns(modelClass)
         .addParameter(ParameterSpec.builder(UPER_INPUT_STREAM, "in").build())
         .addStatement("int index = (int) in.readBits($L)", bitCount)
@@ -173,14 +181,15 @@ final class CodecGenerator {
   }
 
   private static MethodSpec buildEncodeIntoMethod(ClassName modelClass, List<EncodedField> fields,
-      String targetPackage) {
+      Function<String, String> typePackageResolver) {
     MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("encodeInto")
+        .addModifiers(Modifier.PUBLIC)
         .addParameter(ParameterSpec.builder(UPER_OUTPUT_STREAM, "out").build())
         .addParameter(ParameterSpec.builder(modelClass, "model").build());
 
     fields.stream().filter(field -> field.optional() || field.hasDefault()).forEach(field ->
         methodBuilder.addStatement("out.writeBits($L ? 1 : 0, 1)", presenceCondition(field)));
-    fields.forEach(field -> addEncodeStatement(methodBuilder, field, targetPackage));
+    fields.forEach(field -> addEncodeStatement(methodBuilder, field, typePackageResolver));
     return methodBuilder.build();
   }
 
@@ -392,14 +401,15 @@ final class CodecGenerator {
   }
 
   private static MethodSpec buildDecodeFromMethod(ClassName modelClass, List<EncodedField> fields,
-      String targetPackage) {
+      Function<String, String> typePackageResolver) {
     MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("decodeFrom")
+        .addModifiers(Modifier.PUBLIC)
         .returns(modelClass)
         .addParameter(ParameterSpec.builder(UPER_INPUT_STREAM, "in").build());
 
     fields.stream().filter(field -> field.optional() || field.hasDefault()).forEach(field ->
         methodBuilder.addStatement("boolean $LPresent = in.readBits(1) != 0", field.name()));
-    fields.forEach(field -> addDecodeStatement(methodBuilder, field, targetPackage));
+    fields.forEach(field -> addDecodeStatement(methodBuilder, field, typePackageResolver));
 
     String args = fields.stream()
         .map(EncodedField::name)
@@ -409,30 +419,31 @@ final class CodecGenerator {
   }
 
   private static void addEncodeStatement(MethodSpec.Builder builder, EncodedField field,
-      String targetPackage) {
+      Function<String, String> typePackageResolver) {
     if (field.optional() || field.hasDefault()) {
       builder.beginControlFlow("if ($L)", presenceCondition(field));
     }
     if (field.encoding() == Encoding.SEQUENCE_OF) {
       EncodedField elementField = field.elementField();
-      TypeName elementType = elementJavaType(elementField, targetPackage);
+      TypeName elementType = elementJavaType(elementField, typePackageResolver);
       CodeBlock elementExpr =
-          encodeExpression(elementField, targetPackage, CodeBlock.of("item"), "stream");
+          encodeExpression(elementField, typePackageResolver, CodeBlock.of("item"), "stream");
       builder.addStatement(
           "$T.encodeSequenceOf(out, model.$N(), $L, $LL, ($T stream, $T item) -> $L)",
           UPER_CODEC_SUPPORT, field.name(), field.lowerBound(), field.upperBound(),
           UPER_OUTPUT_STREAM, elementType, elementExpr);
     } else if (field.encoding() != Encoding.ZERO_RANGE) {
       builder.addStatement(
-          encodeExpression(field, targetPackage, CodeBlock.of("model.$N()", field.name()), "out"));
+          encodeExpression(field, typePackageResolver, CodeBlock.of("model.$N()", field.name()),
+              "out"));
     }
     if (field.optional() || field.hasDefault()) {
       builder.endControlFlow();
     }
   }
 
-  private static CodeBlock encodeExpression(EncodedField field, String targetPackage,
-      CodeBlock valueExpr, String streamVar) {
+  private static CodeBlock encodeExpression(EncodedField field,
+      Function<String, String> typePackageResolver, CodeBlock valueExpr, String streamVar) {
     return switch (field.encoding()) {
       case SEMI_CONSTRAINED -> field.lowerBound() == 0
           ? CodeBlock.of("$T.encodeSemiConstrainedInt($L, $L)", UPER_CODEC_SUPPORT, streamVar,
@@ -463,15 +474,16 @@ final class CodecGenerator {
       case ENUMERATED -> CodeBlock.of("$L.writeBits($L, $L)", streamVar, valueExpr,
           field.bitCount());
       case TYPE_REFERENCE -> CodeBlock.of("new $T().encodeInto($L, $L)",
-          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), streamVar,
-          valueExpr);
+          ClassName.get(typePackageResolver.apply(field.referencedTypeName()),
+              field.referencedTypeName() + "Codec"),
+          streamVar, valueExpr);
       case SEQUENCE_OF -> throw new IllegalArgumentException(
           "nested SEQUENCE OF element not supported");
     };
   }
 
   private static void addDecodeStatement(MethodSpec.Builder builder, EncodedField field,
-      String targetPackage) {
+      Function<String, String> typePackageResolver) {
     switch (field.encoding()) {
       case SEMI_CONSTRAINED -> {
         if (field.lowerBound() == 0) {
@@ -520,13 +532,16 @@ final class CodecGenerator {
       case ENUMERATED -> addDecodeAssignment(builder, field, TypeName.INT,
           "(int) in.readBits($L)", field.bitCount());
       case TYPE_REFERENCE -> addDecodeAssignment(builder, field,
-          ClassName.get(targetPackage, field.referencedTypeName()), "new $T().decodeFrom(in)",
-          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"));
+          ClassName.get(typePackageResolver.apply(field.referencedTypeName()),
+              field.referencedTypeName()),
+          "new $T().decodeFrom(in)",
+          ClassName.get(typePackageResolver.apply(field.referencedTypeName()),
+              field.referencedTypeName() + "Codec"));
       case SEQUENCE_OF -> {
         EncodedField elementField = field.elementField();
-        TypeName elementType = elementJavaType(elementField, targetPackage);
+        TypeName elementType = elementJavaType(elementField, typePackageResolver);
         TypeName listType = ParameterizedTypeName.get(LIST, elementType.box());
-        CodeBlock elementExpr = decodeExpression(elementField, targetPackage, "elementIn");
+        CodeBlock elementExpr = decodeExpression(elementField, typePackageResolver, "elementIn");
         addDecodeAssignment(builder, field, listType,
             "$T.decodeSequenceOf(in, $L, $LL, ($T elementIn) -> $L)", UPER_CODEC_SUPPORT,
             field.lowerBound(), field.upperBound(), UPER_INPUT_STREAM, elementExpr);
@@ -534,8 +549,8 @@ final class CodecGenerator {
     }
   }
 
-  private static CodeBlock decodeExpression(EncodedField field, String targetPackage,
-      String streamVar) {
+  private static CodeBlock decodeExpression(EncodedField field,
+      Function<String, String> typePackageResolver, String streamVar) {
     return switch (field.encoding()) {
       case SEMI_CONSTRAINED -> field.lowerBound() == 0
           ? CodeBlock.of("(int) $T.decodeSemiConstrainedInt($L)", UPER_CODEC_SUPPORT, streamVar)
@@ -563,22 +578,26 @@ final class CodecGenerator {
       case UTF8_STRING -> CodeBlock.of("$T.decodeUtf8String($L)", UPER_CODEC_SUPPORT, streamVar);
       case ENUMERATED -> CodeBlock.of("(int) $L.readBits($L)", streamVar, field.bitCount());
       case TYPE_REFERENCE -> CodeBlock.of("new $T().decodeFrom($L)",
-          ClassName.get(targetPackage, field.referencedTypeName() + "Codec"), streamVar);
+          ClassName.get(typePackageResolver.apply(field.referencedTypeName()),
+              field.referencedTypeName() + "Codec"),
+          streamVar);
       case SEQUENCE_OF -> throw new IllegalArgumentException(
           "nested SEQUENCE OF element not supported");
     };
   }
 
-  private static TypeName elementJavaType(EncodedField elementField, String targetPackage) {
+  private static TypeName elementJavaType(EncodedField elementField,
+      Function<String, String> typePackageResolver) {
     return switch (elementField.encoding()) {
       case SEMI_CONSTRAINED, CONSTRAINED, ZERO_RANGE, ENUMERATED -> TypeName.INT;
       case UNCONSTRAINED -> TypeName.LONG;
       case BOOLEAN -> TypeName.BOOLEAN;
       case UTF8_STRING, IA5_STRING, VISIBLE_STRING -> STRING;
       case OCTET_STRING, BIT_STRING -> BYTE_ARRAY;
-      case TYPE_REFERENCE -> ClassName.get(targetPackage, elementField.referencedTypeName());
+      case TYPE_REFERENCE -> ClassName.get(typePackageResolver.apply(elementField.referencedTypeName()),
+          elementField.referencedTypeName());
       case SEQUENCE_OF -> ParameterizedTypeName.get(LIST,
-          elementJavaType(elementField.elementField(), targetPackage).box());
+          elementJavaType(elementField.elementField(), typePackageResolver).box());
     };
   }
 
