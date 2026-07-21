@@ -24,16 +24,22 @@ import sys
 def _preprocess(data, type_node=None):
     """Recursively convert JSON values to asn1tools-compatible Python types.
 
-    - Hex strings → bytes (for OCTET STRING fields)
-    - [hex_string, bit_count] arrays → (bytes, int) tuples (for BIT STRING fields)
+    - Hex strings → bytes, but only for a field whose declared type is actually
+      OCTET STRING (gated on `type_node`, not guessed) — otherwise a UTF8String/
+      IA5String/VisibleString value that happens to look like hex (e.g. "cafe",
+      "dead", "beef") would be silently mis-converted to bytes instead of str.
+    - [hex_string, bit_count] arrays → (bytes, int) tuples, for a field whose
+      declared type is BIT STRING.
     - {"alternative-name": value} → ("alternative-name", value) tuples (for CHOICE
       fields — asn1tools' Python API represents a chosen CHOICE alternative as a
       2-tuple, not a dict, and JSON has no tuple type)
     - Other types are passed through unchanged.
 
     `type_node` is the corresponding asn1tools compiled type (e.g. a
-    `codecs.per.Sequence` or `codecs.per.Choice` instance) when known, used to
-    resolve CHOICE alternatives and to recurse into SEQUENCE member types by name.
+    `codecs.per.Sequence`, `codecs.per.Choice`, or `codecs.uper.OctetString`
+    instance) when known, used to resolve CHOICE alternatives, to recurse into
+    SEQUENCE member types by name and SEQUENCE OF element types, and to decide
+    which JSON values need hex/bytes conversion.
     """
     type_name = type(type_node).__name__ if type_node is not None else None
 
@@ -53,17 +59,12 @@ def _preprocess(data, type_node=None):
             member_by_name = {member.name: member for member in type_node.root_members}
         return {k: _preprocess(v, member_by_name.get(k)) for k, v in data.items()}
     if isinstance(data, list):
-        if len(data) == 2 and isinstance(data[1], int):
-            try:
-                return (bytes.fromhex(data[0]), data[1])
-            except (ValueError, TypeError):
-                pass
-        return [_preprocess(item) for item in data]
-    if isinstance(data, str) and len(data) > 0:
-        try:
-            return bytes.fromhex(data)
-        except ValueError:
-            return data
+        if type_name == "BitString" and len(data) == 2 and isinstance(data[1], int):
+            return (bytes.fromhex(data[0]), data[1])
+        element_type = type_node.element_type if type_name == "SequenceOf" else None
+        return [_preprocess(item, element_type) for item in data]
+    if type_name == "OctetString" and isinstance(data, str):
+        return bytes.fromhex(data)
     return data
 
 
