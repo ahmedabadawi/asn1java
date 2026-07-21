@@ -623,6 +623,55 @@ values verified against the `asn1tools` oracle.
 
 ---
 
+## Value assignments — named constants (no wire-format impact)
+
+A module-level value assignment (e.g. `maxVolume INTEGER ::= 100`) declares a
+named constant that may be used afterward in place of a literal number in any
+constraint bound — an INTEGER range (`INTEGER (0..maxVolume)`) or a SIZE
+constraint (`SEQUENCE (SIZE (0..maxTags)) OF UTF8String`).
+
+This is a **compile-time substitution only** — it has no effect whatsoever on the
+UPER bit-level encoding. `INTEGER (0..maxVolume)` where `maxVolume INTEGER ::= 100`
+encodes byte-identically to `INTEGER (0..100)` written directly: same range, same
+`bit_count`, same offset formula. The name is resolved to its literal value before
+any encoding decision is made; nothing downstream of parsing is aware a named
+constant was ever used.
+
+**`Settings` SEQUENCE encoding** (`maxVolume INTEGER ::= 100`, `maxTags INTEGER ::=
+10`, `Settings ::= SEQUENCE { volume INTEGER (0..maxVolume), tags SEQUENCE (SIZE
+(0..maxTags)) OF UTF8String }`): `volume` is an ordinary 7-bit constrained whole
+number (range 100, bit_count = 7); `tags` is an ordinary range-constrained
+SEQUENCE OF (range 10, bit_count = 4) of unconstrained UTF8String elements — see
+the SEQUENCE OF and INTEGER (lb..ub) sections above for the algorithms themselves.
+See `golden-tests/limits/*.hex` for exact byte-level values verified against the
+`asn1tools` oracle.
+
+---
+
+## IMPORTS ... FROM — cross-module type references (no wire-format impact)
+
+`IMPORTS Track FROM PlaylistModule;` at the top of a module makes a type defined
+in a *different* spec/module usable by name in the importing module, exactly as
+if it were a local `typeReference`.
+
+This is a **symbol-resolution and tooling feature only** — it has no effect
+whatsoever on the UPER bit-level encoding. A field of an imported type encodes
+exactly per the Type Reference rule above: the bit stream produced by encoding
+the field is identical to encoding the imported type's own value as a standalone
+message, with no tag, length prefix, or marker indicating the type came from
+another module.
+
+**`Mixtape` SEQUENCE encoding** (`MixtapeModule` imports `Track` from
+`PlaylistModule`; `Mixtape ::= SEQUENCE { curator UTF8String, tracks SEQUENCE
+(SIZE (1..10)) OF Track }`): `curator` is an ordinary unconstrained UTF8String;
+`tracks` is an ordinary range-constrained SEQUENCE OF (range 9, bit_count = 4) of
+`Track` elements — see the SEQUENCE OF and Type Reference sections above for the
+algorithms themselves. See `golden-tests/mixtape/*.hex` for exact byte-level
+values verified against the `asn1tools` oracle (compiled together with
+`spec/playlist.asn`, the exporting module).
+
+---
+
 ## Adding new rules
 
 When a new construct is implemented, document it here before moving on to the code

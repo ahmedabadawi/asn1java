@@ -3,15 +3,32 @@ grammar ASN1;
 // Parser Rules
 
 moduleDefinition
-    : moduleIdentifier DEFINITIONS AUTOMATIC TAGS ASSIGNMENT BEGIN memberList END EOF
+    : moduleIdentifier DEFINITIONS AUTOMATIC TAGS ASSIGNMENT BEGIN importsClause? memberList END EOF
     ;
 
 moduleIdentifier
     : UPPER_IDENT
     ;
 
+importsClause
+    : IMPORTS symbolsFromModule+ SEMICOLON
+    ;
+
+symbolsFromModule
+    : UPPER_IDENT (COMMA UPPER_IDENT)* FROM UPPER_IDENT
+    ;
+
 memberList
-    : typeAssignment*
+    : moduleMember*
+    ;
+
+moduleMember
+    : typeAssignment
+    | valueAssignment
+    ;
+
+valueAssignment
+    : LOWER_IDENT INTEGER ASSIGNMENT MINUS? NUMBER
     ;
 
 typeAssignment
@@ -128,11 +145,13 @@ constraint
 lowerBound
     : MINUS? NUMBER
     | MIN
+    | LOWER_IDENT
     ;
 
 upperBound
     : NUMBER
     | MAX
+    | LOWER_IDENT
     ;
 
 // Lexer Rules
@@ -155,6 +174,8 @@ SIZE        : 'SIZE';
 OCTET       : 'OCTET';
 BIT         : 'BIT';
 OF          : 'OF';
+IMPORTS     : 'IMPORTS';
+FROM        : 'FROM';
 NULL_TYPE     : 'NULL';
 IA5STRING     : 'IA5String';
 VISIBLESTRING : 'VisibleString';
@@ -173,6 +194,7 @@ LPAREN      : '(';
 RPAREN      : ')';
 COMMA       : ',';
 MINUS       : '-';
+SEMICOLON   : ';';
 
 // Identifiers
 UPPER_IDENT : [A-Z] [a-zA-Z0-9-]*;      // ModuleNames, TypeNames

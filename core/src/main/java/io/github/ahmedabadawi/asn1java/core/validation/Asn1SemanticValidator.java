@@ -8,6 +8,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.DefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ImportedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
@@ -34,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Asn1SemanticValidator {
 
@@ -42,9 +44,10 @@ public class Asn1SemanticValidator {
 
     checkDuplicateTypeNames(module, errors);
 
-    Set<String> definedTypeNames = module.types().stream()
-        .map(TypeAssignmentNode::name)
-        .collect(Collectors.toSet());
+    Set<String> definedTypeNames = Stream.concat(
+        module.types().stream().map(TypeAssignmentNode::name),
+        module.imports().stream().map(ImportedTypeNode::typeName)
+    ).collect(Collectors.toSet());
 
     for (TypeAssignmentNode type : module.types()) {
       switch (type.type()) {
@@ -83,6 +86,13 @@ public class Asn1SemanticValidator {
     for (TypeAssignmentNode type : module.types()) {
       if (!seen.add(type.name())) {
         errors.add(new ValidationError("Duplicate type name: " + type.name()));
+      }
+    }
+    for (ImportedTypeNode imported : module.imports()) {
+      if (!seen.add(imported.typeName())) {
+        errors.add(new ValidationError(
+            "Imported type name '%s' collides with a locally-defined or previously-imported type"
+                .formatted(imported.typeName())));
       }
     }
   }

@@ -333,4 +333,42 @@ class Asn1SemanticValidatorTest {
     assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
         .containsExactly("Unknown type reference 'Missing' in field Playlist.tracks[]");
   }
+
+  @Test
+  void validate_WhenTypeReferenceIsImported_ThenNoExceptionThrown() {
+    // Given
+    String source = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+        IMPORTS Foo FROM OtherModule;
+            Bar ::= SEQUENCE {
+                value Foo
+            }
+        END
+        """;
+
+    // When / Then
+    assertThatNoException().isThrownBy(() -> Asn1Spec.parse(source));
+  }
+
+  @Test
+  void validate_WhenImportedTypeCollidesWithLocalType_ThenThrowsAsn1SemanticException() {
+    // Given
+    String invalid = """
+        MyModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+        IMPORTS Foo FROM OtherModule;
+            Foo ::= SEQUENCE {
+                value INTEGER (0..MAX)
+            }
+        END
+        """;
+
+    // When
+    var exception =
+        catchThrowableOfType(Asn1SemanticException.class, () -> Asn1Spec.parse(invalid));
+
+    // Then
+    assertThat(exception.errors()).hasSize(1).extracting(ValidationError::message)
+        .containsExactly(
+            "Imported type name 'Foo' collides with a locally-defined or previously-imported type");
+  }
 }

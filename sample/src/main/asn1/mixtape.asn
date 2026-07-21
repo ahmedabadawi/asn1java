@@ -1,0 +1,10 @@
+MixtapeModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+IMPORTS Track FROM PlaylistModule;
+
+Mixtape ::= SEQUENCE {
+    curator UTF8String,
+    tracks  SEQUENCE (SIZE (1..10)) OF Track
+}
+
+END

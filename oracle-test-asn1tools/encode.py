@@ -2,9 +2,13 @@
 """
 Golden test generator using asn1tools for UPER encoding.
 
-Usage: encode.py <spec.asn> <RootType> <input1.json> [input2.json ...]
+Usage: encode.py <spec1.asn>[,<spec2.asn>,...] <RootType> <input1.json> [input2.json ...]
 
-Outputs written to /work/golden-tests/<spec-name>/:
+A comma-separated spec list is compiled together (asn1tools.compile_files),
+which is required when the root type's module IMPORTS from another module.
+The golden-test directory is named after the first spec in the list.
+
+Outputs written to /work/golden-tests/<first-spec-name>/:
   <basename>.uper   raw binary UPER encoding
   <basename>.hex    hex string (no spaces)
   <basename>.txt    human-readable summary
@@ -63,19 +67,19 @@ def _preprocess(data, type_node=None):
     return data
 
 
-def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int:
-    spec_name = os.path.splitext(os.path.basename(spec_file))[0]
+def encode_inputs(spec_files: list[str], root_type: str, input_files: list[str]) -> int:
+    spec_name = os.path.splitext(os.path.basename(spec_files[0]))[0]
     output_dir = f"/work/golden-tests/{spec_name}"
 
     shutil.rmtree(output_dir, ignore_errors=True)
     os.makedirs(output_dir)
 
     print(f" asn1tools UPER golden-test generator")
-    print(f" Spec      : {spec_file}")
+    print(f" Spec      : {' '.join(spec_files)}")
     print(f" Root type : {root_type}")
     print(f" Inputs    : {' '.join(input_files)}")
 
-    db = asn1tools.compile_files([f"/work/{spec_file}"], codec="uper")
+    db = asn1tools.compile_files([f"/work/{spec_file}" for spec_file in spec_files], codec="uper")
     root_type_node = db.types[root_type].type
 
     exit_code = 0
@@ -111,7 +115,7 @@ def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int
         with open(out_hex, "w") as f:
             f.write(hex_str + "\n")
         with open(out_txt, "w") as f:
-            f.write(f"spec:    {spec_file}\n")
+            f.write(f"spec:    {' '.join(spec_files)}\n")
             f.write(f"type:    {root_type}\n")
             f.write(f"input:   {input_file}\n")
             f.write(f"hex:     {hex_str}\n")
@@ -131,9 +135,9 @@ def encode_inputs(spec_file: str, root_type: str, input_files: list[str]) -> int
 if __name__ == "__main__":
     if len(sys.argv) < 4:
         print(
-            "Usage: encode.py <spec.asn> <RootType> <input1.json> [input2.json ...]",
+            "Usage: encode.py <spec1.asn>[,<spec2.asn>,...] <RootType> <input1.json> [input2.json ...]",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    sys.exit(encode_inputs(sys.argv[1], sys.argv[2], sys.argv[3:]))
+    sys.exit(encode_inputs(sys.argv[1].split(","), sys.argv[2], sys.argv[3:]))

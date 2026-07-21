@@ -9,6 +9,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.ConstraintNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.EnumeratedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.FieldNode;
+import io.github.ahmedabadawi.asn1java.core.ast.ImportedTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerDefaultValueNode;
 import io.github.ahmedabadawi.asn1java.core.ast.IntegerTypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.BitStringTypeNode;
@@ -29,23 +30,59 @@ import io.github.ahmedabadawi.asn1java.core.ast.TypeNode;
 import io.github.ahmedabadawi.asn1java.core.ast.TypeReferenceNode;
 import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
+  private Map<String, Long> constants = Map.of();
+
   @Override
   public ModuleNode visitModuleDefinition(ASN1Parser.ModuleDefinitionContext context) {
     String name = context.moduleIdentifier().UPPER_IDENT().getText();
-    List<TypeAssignmentNode> types =
-        context.memberList().typeAssignment().stream().map(t -> switch (visit(t)) {
+    constants = parseConstants(context);
+    List<ImportedTypeNode> imports = context.importsClause() != null
+        ? parseImports(context.importsClause())
+        : List.of();
+    List<TypeAssignmentNode> types = context.memberList().moduleMember().stream()
+        .filter(member -> member.typeAssignment() != null)
+        .map(member -> switch (visit(member.typeAssignment())) {
           case TypeAssignmentNode n -> n;
-          default ->
-              throw new IllegalStateException("unexpected node for typeAssignment: " + t.getText());
+          default -> throw new IllegalStateException(
+              "unexpected node for typeAssignment: " + member.getText());
         }).toList();
-    return new ModuleNode(name, types);
+    return new ModuleNode(name, types, imports);
+  }
+
+  private List<ImportedTypeNode> parseImports(ASN1Parser.ImportsClauseContext context) {
+    return context.symbolsFromModule().stream()
+        .flatMap(group -> {
+          List<TerminalNode> identifiers = group.UPPER_IDENT();
+          String moduleName = identifiers.getLast().getText();
+          return identifiers.subList(0, identifiers.size() - 1).stream()
+              .map(typeIdent -> new ImportedTypeNode(typeIdent.getText(), moduleName));
+        })
+        .toList();
+  }
+
+  private Map<String, Long> parseConstants(ASN1Parser.ModuleDefinitionContext context) {
+    Map<String, Long> parsed = new HashMap<>();
+    for (ASN1Parser.ModuleMemberContext member : context.memberList().moduleMember()) {
+      if (member.valueAssignment() == null) {
+        continue;
+      }
+      ASN1Parser.ValueAssignmentContext valueAssignment = member.valueAssignment();
+      String constantName = valueAssignment.LOWER_IDENT().getText();
+      int sign = valueAssignment.MINUS() != null ? -1 : 1;
+      long magnitude = Long.parseLong(valueAssignment.NUMBER().getText());
+      parsed.put(constantName, sign * magnitude);
+    }
+    return parsed;
   }
 
   @Override
@@ -275,6 +312,9 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
     if (context.MIN() != null) {
       return new MinBound();
     }
+    if (context.LOWER_IDENT() != null) {
+      return new NumberBound(resolveConstant(context.LOWER_IDENT().getText()));
+    }
     int sign = context.MINUS() != null ? -1 : 1;
     int magnitude = Integer.parseInt(context.NUMBER().getText());
     return new NumberBound(sign * magnitude);
@@ -282,8 +322,21 @@ public class Asn1ModuleVisitor extends ASN1BaseVisitor<Object> {
 
   @Override
   public Bound visitUpperBound(ASN1Parser.UpperBoundContext context) {
-    return context.MAX() != null ?
-        new MaxBound() :
-        new NumberBound(Integer.parseInt(context.NUMBER().getText()));
+    if (context.MAX() != null) {
+      return new MaxBound();
+    }
+    if (context.LOWER_IDENT() != null) {
+      return new NumberBound(resolveConstant(context.LOWER_IDENT().getText()));
+    }
+    return new NumberBound(Integer.parseInt(context.NUMBER().getText()));
+  }
+
+  private int resolveConstant(String constantName) {
+    Long value = constants.get(constantName);
+    if (value == null) {
+      throw new IllegalArgumentException("Undefined constant '%s' referenced in a bound"
+          .formatted(constantName));
+    }
+    return value.intValue();
   }
 }

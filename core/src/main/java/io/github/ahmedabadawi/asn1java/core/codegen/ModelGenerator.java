@@ -28,6 +28,7 @@ import io.github.ahmedabadawi.asn1java.core.ast.Utf8StringTypeNode;
 import javax.lang.model.element.Modifier;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
 
 final class ModelGenerator {
 
@@ -38,12 +39,13 @@ final class ModelGenerator {
   private static final com.palantir.javapoet.ArrayTypeName BYTE_ARRAY =
       com.palantir.javapoet.ArrayTypeName.of(TypeName.BYTE);
 
-  static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment) {
+  static JavaFile generate(String targetPackage, TypeAssignmentNode typeAssignment,
+      Function<String, String> typePackageResolver) {
     TypeSpec record = switch (typeAssignment.type()) {
       case SequenceTypeNode seq -> buildSequenceRecord(targetPackage, typeAssignment.name(), seq,
-          CodecGenerator.collectFields(typeAssignment));
-      case ChoiceTypeNode choice ->
-          buildChoiceInterface(targetPackage, typeAssignment.name(), choice);
+          CodecGenerator.collectFields(typeAssignment), typePackageResolver);
+      case ChoiceTypeNode choice -> buildChoiceInterface(targetPackage, typeAssignment.name(),
+          choice, typePackageResolver);
       case IntegerTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name(),
           CodecGenerator.collectFields(typeAssignment).get(0));
       case BooleanTypeNode ignored -> buildBooleanWrapperRecord(typeAssignment.name());
@@ -61,7 +63,8 @@ final class ModelGenerator {
       case EnumeratedTypeNode ignored -> buildIntegerWrapperRecord(typeAssignment.name(),
           CodecGenerator.collectFields(typeAssignment).get(0));
       case SequenceOfTypeNode sequenceOfType -> buildSequenceOfWrapperRecord(targetPackage,
-          typeAssignment.name(), sequenceOfType, CodecGenerator.collectFields(typeAssignment).get(0));
+          typeAssignment.name(), sequenceOfType, CodecGenerator.collectFields(typeAssignment).get(0),
+          typePackageResolver);
       case TypeReferenceNode ignored ->
           throw new IllegalArgumentException(
               "top-level TypeReferenceNode is not a valid type assignment body: "
@@ -71,7 +74,8 @@ final class ModelGenerator {
   }
 
   private static TypeSpec buildSequenceRecord(String targetPackage, String name,
-      SequenceTypeNode seq, List<CodecGenerator.EncodedField> fields) {
+      SequenceTypeNode seq, List<CodecGenerator.EncodedField> fields,
+      Function<String, String> typePackageResolver) {
     MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
         .addModifiers(Modifier.PUBLIC);
     Iterator<CodecGenerator.EncodedField> fieldIterator = fields.iterator();
@@ -79,7 +83,7 @@ final class ModelGenerator {
       if (field.type() instanceof NullTypeNode) {
         continue;
       }
-      TypeName javaType = resolveFieldJavaType(targetPackage, field.type());
+      TypeName javaType = resolveFieldJavaType(targetPackage, field.type(), typePackageResolver);
       if (field.optional()) {
         javaType = javaType.box();
       }
@@ -92,7 +96,8 @@ final class ModelGenerator {
         .build();
   }
 
-  private static TypeName resolveFieldJavaType(String targetPackage, TypeNode type) {
+  private static TypeName resolveFieldJavaType(String targetPackage, TypeNode type,
+      Function<String, String> typePackageResolver) {
     return switch (type) {
       case IntegerTypeNode intType ->
           intType.constraint() != null && intType.constraint().lowerBound() instanceof MinBound
@@ -111,13 +116,15 @@ final class ModelGenerator {
           throw new IllegalArgumentException("nested CHOICE not supported in record generator");
       case EnumeratedTypeNode ignored -> TypeName.INT;
       case SequenceOfTypeNode sequenceOfType -> ParameterizedTypeName.get(ClassName.get(List.class),
-          resolveFieldJavaType(targetPackage, sequenceOfType.elementType()).box());
-      case TypeReferenceNode ref -> ClassName.get(targetPackage, ref.typeName());
+          resolveFieldJavaType(targetPackage, sequenceOfType.elementType(), typePackageResolver)
+              .box());
+      case TypeReferenceNode ref ->
+          ClassName.get(typePackageResolver.apply(ref.typeName()), ref.typeName());
     };
   }
 
   private static TypeSpec buildChoiceInterface(String targetPackage, String name,
-      ChoiceTypeNode choice) {
+      ChoiceTypeNode choice, Function<String, String> typePackageResolver) {
     ClassName selfClassName = ClassName.get(targetPackage, name);
     TypeSpec.Builder interfaceBuilder = TypeSpec.interfaceBuilder(name)
         .addModifiers(Modifier.PUBLIC, Modifier.SEALED);
@@ -126,7 +133,8 @@ final class ModelGenerator {
       MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
           .addModifiers(Modifier.PUBLIC);
       if (!(alternative.type() instanceof NullTypeNode)) {
-        TypeName payloadType = resolveFieldJavaType(targetPackage, alternative.type());
+        TypeName payloadType =
+            resolveFieldJavaType(targetPackage, alternative.type(), typePackageResolver);
         ctorBuilder.addParameter(payloadType, "value");
         if (alternative.type() instanceof TypeReferenceNode) {
           ctorBuilder.beginControlFlow("if (value == null)")
@@ -199,8 +207,10 @@ final class ModelGenerator {
   }
 
   private static TypeSpec buildSequenceOfWrapperRecord(String targetPackage, String name,
-      SequenceOfTypeNode sequenceOfType, CodecGenerator.EncodedField field) {
-    TypeName elementType = resolveFieldJavaType(targetPackage, sequenceOfType.elementType());
+      SequenceOfTypeNode sequenceOfType, CodecGenerator.EncodedField field,
+      Function<String, String> typePackageResolver) {
+    TypeName elementType =
+        resolveFieldJavaType(targetPackage, sequenceOfType.elementType(), typePackageResolver);
     TypeName listType = ParameterizedTypeName.get(ClassName.get(List.class), elementType.box());
     MethodSpec.Builder ctorBuilder = MethodSpec.compactConstructorBuilder()
         .addModifiers(Modifier.PUBLIC)
