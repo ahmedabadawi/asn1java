@@ -81,7 +81,7 @@ Each `specFile` entry may optionally set `packageName` to override `basePackage`
 ## Process
 1. Select one or more ASN.1 features/constructs
 2. Create ASN.1 spec file that covers the feature/constructs
-3. Create 2 or more examples in `JSON` (`JER`) and 1 or more invalid examples as inputs
+3. Create 2 or more examples in `JSON` (`JER`) and 1 or more invalid examples as inputs. Keys name the ASN.1 fields/alternatives as declared in the spec (`message-time-to-live`); the asn1tools oracle also accepts the camelCase alias (`messageTimeToLive`)
 4. Use `asn1tools` to generate `UPER` encoder/decoder for the same spec
 5. Run the examples by the `asn1tools` codec to generate encoder `golden-tests`
 6. Handwritten `UPER` encoder/decoder in Java
