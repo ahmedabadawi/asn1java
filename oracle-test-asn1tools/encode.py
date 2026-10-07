@@ -21,6 +21,32 @@ import shutil
 import sys
 
 
+def _kebab_to_camel(kebab_name: str) -> str:
+    """Mirror of CodegenUtils.toJavaFieldName (core/.../codegen/CodegenUtils.java),
+    used here in reverse: computes the camelCase alias of a kebab-case ASN.1
+    identifier so example JSON can name a field either way."""
+    parts = kebab_name.split("-")
+    return parts[0] + "".join(part[:1].upper() + part[1:] for part in parts[1:])
+
+
+def _resolve_key(key: str, canonical_names) -> str:
+    """Resolve `key` to its canonical (as-declared-in-the-spec) ASN.1 name.
+
+    Example JSON is expected to use the literal kebab-case ASN.1 field/alternative
+    name (e.g. "message-time-to-live"), but a camelCase spelling (e.g.
+    "messageTimeToLive") is also accepted as a convenience — resolved by computing
+    the camelCase alias of every canonical name and matching against that, not by
+    guessing word boundaries in `key` itself, so it's exact for any name actually
+    declared in the spec. An unrecognized key is returned unchanged, so it still
+    surfaces as asn1tools' own clear "Sequence member ... not found" error rather
+    than being silently swallowed.
+    """
+    if key in canonical_names:
+        return key
+    aliases = {_kebab_to_camel(name): name for name in canonical_names}
+    return aliases.get(key, key)
+
+
 def _preprocess(data, type_node=None):
     """Recursively convert JSON values to asn1tools-compatible Python types.
 
@@ -33,6 +59,8 @@ def _preprocess(data, type_node=None):
     - {"alternative-name": value} → ("alternative-name", value) tuples (for CHOICE
       fields — asn1tools' Python API represents a chosen CHOICE alternative as a
       2-tuple, not a dict, and JSON has no tuple type)
+    - SEQUENCE member names and CHOICE alternative names may be written in either
+      the ASN.1 spec's own kebab-case or a camelCase alias (see `_resolve_key`).
     - Other types are passed through unchanged.
 
     `type_node` is the corresponding asn1tools compiled type (e.g. a
@@ -49,15 +77,20 @@ def _preprocess(data, type_node=None):
                 "CHOICE value must be a single-key object naming the chosen "
                 "alternative, got: {}".format(data))
         (alternative_name, alternative_value), = data.items()
+        resolved_name = _resolve_key(alternative_name, type_node.root_name_to_index.keys())
         member_type = type_node.root_index_to_member[
-            type_node.root_name_to_index[alternative_name]]
-        return (alternative_name, _preprocess(alternative_value, member_type))
+            type_node.root_name_to_index[resolved_name]]
+        return (resolved_name, _preprocess(alternative_value, member_type))
 
     if isinstance(data, dict):
         member_by_name = {}
         if type_name == "Sequence":
             member_by_name = {member.name: member for member in type_node.root_members}
-        return {k: _preprocess(v, member_by_name.get(k)) for k, v in data.items()}
+        resolved = {}
+        for k, v in data.items():
+            resolved_key = _resolve_key(k, member_by_name.keys()) if member_by_name else k
+            resolved[resolved_key] = _preprocess(v, member_by_name.get(resolved_key))
+        return resolved
     if isinstance(data, list):
         if type_name == "BitString" and len(data) == 2 and isinstance(data[1], int):
             return (bytes.fromhex(data[0]), data[1])
